@@ -25,7 +25,6 @@ export function IpfsImage({
   const [error, setError] = useState<boolean>(false)
 
   useEffect(() => {
-    // If the source is an IPFS URL, try to convert it to a gateway URL
     if (src.startsWith("ipfs://") || src.includes("/ipfs/")) {
       const hash = getIpfsHashFromUrl(src)
       if (hash) {

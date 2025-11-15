@@ -1,56 +1,74 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { useWeb3 } from "./web3-provider"
-import { useFirebase } from "./firebase-provider"
-import { ProfileSetupForm } from "./profile-setup-form"
-import { Wallet, Loader2 } from "lucide-react"
-import type { UserProfile } from "@/lib/types"
-import { usePathname } from "next/navigation"
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { useWeb3 } from "./web3-provider";
+import { useFirebase } from "./firebase-provider";
+import { ProfileSetupForm } from "./profile-setup-form";
+import { Wallet, Loader2 } from "lucide-react";
+import type { UserProfile } from "@/lib/types";
+import { usePathname } from "next/navigation";
 
 export function WalletConnect() {
-  const { account, connectWallet, disconnectWallet, isConnecting, isConnected } = useWeb3()
-  const { getUserProfile } = useFirebase()
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
-  const [showProfileSetup, setShowProfileSetup] = useState(false)
-  const [isCheckingProfile, setIsCheckingProfile] = useState(false)
-  const pathname = usePathname()
+  const {
+    account,
+    connectWallet,
+    disconnectWallet,
+    isConnecting,
+    isConnected,
+  } = useWeb3();
+  const { getUserProfile } = useFirebase();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [showProfileSetup, setShowProfileSetup] = useState(false);
+  const [isCheckingProfile, setIsCheckingProfile] = useState(false);
+  const pathname = usePathname();
 
   // Check if we're on the landing page
-  const isLandingPage = pathname === "/landing"
+  const isLandingPage = pathname === "/landing";
 
   useEffect(() => {
     if (account && isConnected) {
-      checkUserProfile(account)
+      checkUserProfile(account);
     } else {
-      setUserProfile(null)
+      setUserProfile(null);
     }
-  }, [account, isConnected])
+  }, [account, isConnected]);
 
   const checkUserProfile = async (address: string) => {
-    setIsCheckingProfile(true)
+    setIsCheckingProfile(true);
     try {
-      const profile = await getUserProfile(address)
-      setUserProfile(profile)
+      const profile = await getUserProfile(address);
+      setUserProfile(profile);
 
       if (!profile) {
-        setShowProfileSetup(true)
+        setShowProfileSetup(true);
       }
     } catch (error) {
-      console.error("Error checking user profile:", error)
+      console.error("Error checking user profile:", error);
     } finally {
-      setIsCheckingProfile(false)
+      setIsCheckingProfile(false);
     }
-  }
+  };
 
   const handleConnect = async () => {
-    await connectWallet()
-  }
+    let timeout: any;
+
+    try {
+      timeout = setTimeout(() => {
+        console.warn("Wallet connection timeout");
+      }, 15000);
+
+      await connectWallet();
+    } catch (error) {
+      console.log("Wallet connect rejected");
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
 
   const shortenAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`
-  }
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
 
   return (
     <>
@@ -87,7 +105,10 @@ export function WalletConnect() {
         )}
       </div>
 
-      <ProfileSetupForm isOpen={showProfileSetup} onClose={() => setShowProfileSetup(false)} />
+      <ProfileSetupForm
+        isOpen={showProfileSetup}
+        onClose={() => setShowProfileSetup(false)}
+      />
     </>
-  )
+  );
 }

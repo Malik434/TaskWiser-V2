@@ -1,67 +1,102 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Loader2, ExternalLink, Info } from "lucide-react"
-import { useToast } from "@/hooks/use-toast"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useState, useEffect } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Loader2, ExternalLink, Info } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export function IpfsInfo() {
-  const { toast } = useToast()
-  const [pinataStatus, setPinataStatus] = useState<"checking" | "connected" | "error">("checking")
-  const [ipfsGateway, setIpfsGateway] = useState("https://gateway.pinata.cloud")
+  const { toast } = useToast();
+  const [pinataStatus, setPinataStatus] = useState<
+    "checking" | "connected" | "error"
+  >("checking");
+  const [ipfsGateway, setIpfsGateway] = useState(
+    "https://gateway.pinata.cloud"
+  );
 
   useEffect(() => {
-    checkPinataConnection()
-  }, [])
+    checkPinataConnection();
+  }, []);
 
   const checkPinataConnection = async () => {
     try {
-      // Check if Pinata API keys are set
-      const apiKey = process.env.NEXT_PUBLIC_PINATA_API_KEY
-      const secretKey = process.env.NEXT_PUBLIC_PINATA_SECRET_API_KEY
+      const apiKey = process.env.NEXT_PUBLIC_PINATA_API_KEY;
+      const secretKey = process.env.NEXT_PUBLIC_PINATA_SECRET_API_KEY;
 
       if (!apiKey || !secretKey) {
-        setPinataStatus("error")
-        return
+        setPinataStatus("error");
+        return;
       }
 
-      // For demo purposes, we'll just check if the keys exist
-      // In a real app, you would make an actual API call to Pinata
-      setPinataStatus("connected")
+      const res = await fetch(
+        "https://api.pinata.cloud/data/testAuthentication",
+        {
+          headers: {
+            pinata_api_key: apiKey,
+            pinata_secret_api_key: secretKey,
+          },
+        }
+      );
+
+      if (!res.ok) {
+        setPinataStatus("error");
+        return;
+      }
+
+      setPinataStatus("connected");
     } catch (error) {
-      console.error("Error checking Pinata connection:", error)
-      setPinataStatus("error")
+      console.error("Pinata connection error:", error);
+      setPinataStatus("error");
     }
-  }
+  };
 
   const handleTestConnection = async () => {
-    setPinataStatus("checking")
+    setPinataStatus("checking");
 
     try {
-      // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 1500))
+      const res = await fetch(
+        "https://api.pinata.cloud/data/testAuthentication",
+        {
+          headers: {
+            pinata_api_key: process.env.NEXT_PUBLIC_PINATA_API_KEY!,
+            pinata_secret_api_key:
+              process.env.NEXT_PUBLIC_PINATA_SECRET_API_KEY!,
+          },
+        }
+      );
 
-      // For demo purposes, we'll assume success
-      setPinataStatus("connected")
+      if (!res.ok) throw new Error("Connection failed");
 
+      setPinataStatus("connected");
       toast({
         title: "Connection Successful",
         description: "Successfully connected to Pinata IPFS service.",
-      })
+      });
     } catch (error) {
-      console.error("Error testing Pinata connection:", error)
-      setPinataStatus("error")
+      console.error("Pinata connection error:", error);
 
+      setPinataStatus("error");
       toast({
         title: "Connection Failed",
         description: "Failed to connect to Pinata IPFS service.",
         variant: "destructive",
-      })
+      });
     }
-  }
+  };
 
   return (
     <Card className="dark:bg-gray-800 dark:border-gray-700 dark:shadow-md dark:shadow-black/10">
@@ -76,7 +111,9 @@ export function IpfsInfo() {
           <Badge
             variant={pinataStatus === "connected" ? "default" : "destructive"}
             className={
-              pinataStatus === "connected" ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100" : ""
+              pinataStatus === "connected"
+                ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100"
+                : ""
             }
           >
             {pinataStatus === "checking" ? (
@@ -96,11 +133,17 @@ export function IpfsInfo() {
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <span className="font-medium dark:text-gray-300">IPFS Gateway</span>
+              <span className="font-medium dark:text-gray-300">
+                IPFS Gateway
+              </span>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 dark:hover:bg-gray-700">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 ml-1 dark:hover:bg-gray-700"
+                    >
                       <Info className="h-4 w-4 text-muted-foreground" />
                     </Button>
                   </TooltipTrigger>
@@ -110,16 +153,24 @@ export function IpfsInfo() {
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <span className="text-sm text-muted-foreground dark:text-gray-400">{ipfsGateway}</span>
+            <span className="text-sm text-muted-foreground dark:text-gray-400">
+              {ipfsGateway}
+            </span>
           </div>
 
           <div className="flex items-center justify-between">
             <div className="flex items-center">
-              <span className="font-medium dark:text-gray-300">Storage Provider</span>
+              <span className="font-medium dark:text-gray-300">
+                Storage Provider
+              </span>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 dark:hover:bg-gray-700">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 ml-1 dark:hover:bg-gray-700"
+                    >
                       <Info className="h-4 w-4 text-muted-foreground" />
                     </Button>
                   </TooltipTrigger>
@@ -129,7 +180,9 @@ export function IpfsInfo() {
                 </Tooltip>
               </TooltipProvider>
             </div>
-            <span className="text-sm text-muted-foreground dark:text-gray-400">Pinata</span>
+            <span className="text-sm text-muted-foreground dark:text-gray-400">
+              Pinata
+            </span>
           </div>
 
           <div className="flex items-center justify-between">
@@ -138,7 +191,11 @@ export function IpfsInfo() {
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 dark:hover:bg-gray-700">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 ml-1 dark:hover:bg-gray-700"
+                    >
                       <Info className="h-4 w-4 text-muted-foreground" />
                     </Button>
                   </TooltipTrigger>
@@ -150,7 +207,11 @@ export function IpfsInfo() {
             </div>
             <Badge
               variant={pinataStatus === "connected" ? "outline" : "destructive"}
-              className={pinataStatus === "connected" ? "dark:border-green-600 dark:text-green-400" : ""}
+              className={
+                pinataStatus === "connected"
+                  ? "dark:border-green-600 dark:text-green-400"
+                  : ""
+              }
             >
               {pinataStatus === "connected" ? "Active" : "Inactive"}
             </Badge>
@@ -187,5 +248,5 @@ export function IpfsInfo() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }

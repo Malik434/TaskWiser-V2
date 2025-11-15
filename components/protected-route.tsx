@@ -19,7 +19,6 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     setIsClient(true)
   }, [])
 
-  // If we're on the server or haven't initialized client-side yet, return nothing to avoid hydration issues
   if (!isClient) {
     return null
   }
@@ -29,6 +28,5 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     return <WalletConnectionCard />
   }
 
-  // If wallet is connected, render the children
   return <>{children}</>
 }

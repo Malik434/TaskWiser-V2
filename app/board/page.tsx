@@ -1,33 +1,29 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import { Sidebar } from "@/components/sidebar"
-import { WalletConnect } from "@/components/wallet-connect"
-import { KanbanBoard } from "@/components/kanban-board"
-import { ThemeToggle } from "@/components/theme-toggle"
-import { useWeb3 } from "@/components/web3-provider"
-import { WalletConnectionCard } from "@/components/wallet-connection-card"
+import { useEffect, useState } from "react";
+import { Sidebar } from "@/components/sidebar";
+import { WalletConnect } from "@/components/wallet-connect";
+import { KanbanBoard } from "@/components/kanban-board";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { useWeb3 } from "@/components/web3-provider";
+import { WalletConnectionCard } from "@/components/wallet-connection-card";
 
 export default function BoardPage() {
-  const { isConnected, account } = useWeb3()
-  const [isClient, setIsClient] = useState(false)
+  const { isConnected, account } = useWeb3();
+  const [isClient, setIsClient] = useState(false);
 
-  // This effect ensures we only check wallet connection status on the client side
   useEffect(() => {
-    setIsClient(true)
-  }, [])
+    setIsClient(true);
+  }, []);
 
-  // If we're on the server or haven't initialized client-side yet, return nothing to avoid hydration issues
   if (!isClient) {
-    return null
+    return null;
   }
 
-  // If wallet is not connected, show the wallet connection card
   if (!isConnected || !account) {
-    return <WalletConnectionCard />
+    return <WalletConnectionCard />;
   }
 
-  // If wallet is connected, show the board
   return (
     <div className="flex h-screen bg-gradient-to-br from-[hsl(210,40%,98%)] to-[hsl(250,40%,98%)] dark:bg-[#121212]">
       <Sidebar />
@@ -44,5 +40,5 @@ export default function BoardPage() {
         </main>
       </div>
     </div>
-  )
+  );
 }

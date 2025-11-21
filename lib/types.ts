@@ -1,3 +1,5 @@
+import { Timestamp } from "firebase/firestore"
+
 export interface UserProfile {
   id: string
   address: string
@@ -91,3 +93,12 @@ export interface ProjectMember {
   isActive: boolean
 }
 
+export interface EventLogs {
+  eventId : string,
+  taskId : string,
+  projectId : string,
+  actor: string,
+  action : "created"|"updated"|"moved"|"assigned"|"commented"|"attachment_uploaded"|"escrow_released",
+  meta: { fromColumn:string,toColumn:string },
+  createdAt: Timestamp
+}

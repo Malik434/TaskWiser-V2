@@ -9,6 +9,9 @@ import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useFirebase } from "./firebase-provider";
 import { useWeb3 } from "./web3-provider";
 import { Button } from "@/components/ui/button";
+import { UserSearchSelect } from "./user-search-select";
+import { TaskCard } from "./task-card";
+import { StatusSelect, PrioritySelect, RewardInput, TaskPointsInput } from "./task-form-fields";
 import {
   Loader2,
   CheckCircle,
@@ -161,11 +164,11 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   const [isManagingProposal, setIsManagingProposal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterPriority, setFilterPriority] = useState("all");
-  const [assigneeSearchQuery, setAssigneeSearchQuery] = useState("");
-  const [reviewerSearchQuery, setReviewerSearchQuery] = useState("");
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [createdTasks, setCreatedTasks] = useState<Task[]>([]);
   const [assignedTasks, setAssignedTasks] = useState<Task[]>([]);
+  const [showRewardSection, setShowRewardSection] = useState(false);
+  const [showAssigneeSection, setShowAssigneeSection] = useState(false);
   // New states for payment popup
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const [taskBeingPaid, setTaskBeingPaid] = useState<Task | null>(null);
@@ -751,10 +754,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
         isOpenBounty: false,
         escrowEnabled: false,
       });
-      setAssigneeSearchQuery("");
-      setReviewerSearchQuery("");
 
       setIsDialogOpen(false);
+      setShowRewardSection(false);
 
       toast({
         title: "Task created",
@@ -1680,17 +1682,6 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     return { unpaid: unpaidTasks, paid: paidTasks };
   };
 
-  // Filter users based on search query
-  const getFilteredUsers = (users: UserProfile[], query: string) => {
-    if (!query) return users;
-
-    return users.filter(
-      (user) =>
-        user.username.toLowerCase().includes(query.toLowerCase()) ||
-        user.address.toLowerCase().includes(query.toLowerCase())
-    );
-  };
-
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "todo":
@@ -1701,32 +1692,6 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
         return <CheckCircle className="h-4 w-4 text-green-500" />;
       default:
         return null;
-    }
-  };
-
-  const getPriorityBadgeClass = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return "priority-badge-high";
-      case "medium":
-        return "priority-badge-medium";
-      case "low":
-        return "priority-badge-low";
-      default:
-        return "";
-    }
-  };
-
-  const getTaskCardClass = (priority: string) => {
-    switch (priority) {
-      case "high":
-        return "priority-high";
-      case "medium":
-        return "priority-medium";
-      case "low":
-        return "priority-low";
-      default:
-        return "";
     }
   };
 
@@ -2013,347 +1978,169 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
           )}
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog
+            open={isDialogOpen}
+            onOpenChange={(open) => {
+              setIsDialogOpen(open);
+              if (!open) {
+                setShowRewardSection(false);
+              }
+            }}
+          > 
             <DialogTrigger asChild>
               <Button className="gradient-button">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Task
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Create New Task</DialogTitle>
+            <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+              <DialogHeader className="px-6 pt-6 pb-4 border-b">
+                <div className="flex items-center justify-between">
+                  <DialogTitle>Create New Task</DialogTitle>
+                </div>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="title">Title</Label>
-                  <Input
-                    id="title"
-                    value={newTask.title}
-                    onChange={(e) =>
-                      setNewTask({ ...newTask, title: e.target.value })
-                    }
-                    placeholder="Task title"
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={newTask.description}
-                    onChange={(e) =>
-                      setNewTask({ ...newTask, description: e.target.value })
-                    }
-                    placeholder="Task description"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="status">Status</Label>
-                    <Select
-                      value={newTask.status}
-                      onValueChange={(value) =>
-                        setNewTask({ ...newTask, status: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="todo">To Do</SelectItem>
-                        <SelectItem value="inprogress">In Progress</SelectItem>
-                        <SelectItem value="review">Review</SelectItem>
-                        <SelectItem value="done">Done</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="priority">Priority</Label>
-                    <Select
-                      value={newTask.priority}
-                      onValueChange={(value) =>
-                        setNewTask({ ...newTask, priority: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select priority" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">Low</SelectItem>
-                        <SelectItem value="medium">Medium</SelectItem>
-                        <SelectItem value="high">High</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="assignee">Assignee</Label>
-                  <div className="relative">
+              <div className="flex-1 overflow-hidden flex">
+                {/* Left Section - Task Content */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-4 border-r">
+
+                  {/* Task Name */}
+                  <div className="space-y-2">
                     <Input
-                      placeholder="Search by username or wallet address..."
-                      value={assigneeSearchQuery}
-                      onChange={(e) => setAssigneeSearchQuery(e.target.value)}
-                      className="w-full"
-                    />
-                    <div
-                      className={`absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-md ${
-                        assigneeSearchQuery ? "block" : "hidden"
-                      }`}
-                    >
-                      <div className="max-h-60 overflow-auto p-1">
-                        <div
-                          className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent"
-                          onClick={() => {
-                            setNewTask({ ...newTask, assigneeId: undefined });
-                            setAssigneeSearchQuery("");
-                          }}
-                        >
-                          <User className="h-4 w-4" />
-                          <span>Unassigned</span>
-                        </div>
-                        {isLoadingUsers ? (
-                          <div className="flex items-center justify-center p-2">
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          </div>
-                        ) : (
-                          getFilteredUsers(
-                            availableUsers,
-                            assigneeSearchQuery
-                          ).map((user) => (
-                            <div
-                              key={user.id}
-                              className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent"
-                              onClick={() => {
-                                setNewTask({ ...newTask, assigneeId: user.id });
-                                setAssigneeSearchQuery("");
-                              }}
-                            >
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage
-                                  src={user.profilePicture || "/placeholder.svg"}
-                                  alt={user.username}
-                                />
-                                <AvatarFallback>
-                                  {user.username.substring(0, 2)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex flex-col">
-                                <span>{user.username}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {user.address.substring(0, 10)}...
-                                </span>
-                              </div>
-                            </div>
-                          ))
-                        )}
-                        {assigneeSearchQuery &&
-                          getFilteredUsers(
-                            availableUsers,
-                            assigneeSearchQuery
-                          ).length === 0 && (
-                            <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                              No users found
-                            </div>
-                          )}
-                      </div>
-                    </div>
-                  </div>
-                  {newTask.assigneeId && (
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-sm">Selected:</span>
-                      {(() => {
-                        const user = availableUsers.find(
-                          (user) => user.id === newTask.assigneeId
-                        );
-                        return (
-                          <div className="flex items-center gap-2">
-                            <Avatar className="h-6 w-6">
-                              <AvatarImage
-                                src={user?.profilePicture || "/placeholder.svg"}
-                                alt={user?.username}
-                              />
-                              <AvatarFallback>
-                                {user?.username?.substring(0, 2) || "UN"}
-                              </AvatarFallback>
-                            </Avatar>
-                            <span className="text-sm">
-                              {user?.username || "Unknown User"}
-                            </span>
-                          </div>
-                        );
-                      })()}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-6 w-6 p-0 rounded-full"
-                        onClick={() =>
-                          setNewTask({ ...newTask, assigneeId: undefined })
-                        }
-                      >
-                        <XCircle className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              <div className="grid gap-2">
-                <Label htmlFor="reviewer">Reviewer</Label>
-                <div className="relative">
-                  <Input
-                    placeholder="Search by username or wallet address..."
-                    value={reviewerSearchQuery}
-                    onChange={(e) => setReviewerSearchQuery(e.target.value)}
-                    className="w-full"
-                  />
-                  <div
-                    className={`absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-md ${
-                      reviewerSearchQuery ? "block" : "hidden"
-                    }`}
-                  >
-                    <div className="max-h-60 overflow-auto p-1">
-                      <div
-                        className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent"
-                        onClick={() => {
-                          setNewTask({ ...newTask, reviewerId: undefined });
-                          setReviewerSearchQuery("");
-                        }}
-                      >
-                        <User className="h-4 w-4" />
-                        <span>No Reviewer</span>
-                      </div>
-                      {isLoadingUsers ? (
-                        <div className="flex items-center justify-center p-2">
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        </div>
-                      ) : (
-                        getFilteredUsers(availableUsers, reviewerSearchQuery).map(
-                          (user) => (
-                            <div
-                              key={user.id}
-                              className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent"
-                              onClick={() => {
-                                setNewTask({ ...newTask, reviewerId: user.id });
-                                setReviewerSearchQuery("");
-                              }}
-                            >
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage
-                                  src={user.profilePicture || "/placeholder.svg"}
-                                  alt={user.username}
-                                />
-                                <AvatarFallback>
-                                  {user.username.substring(0, 2)}
-                                </AvatarFallback>
-                              </Avatar>
-                              <div className="flex flex-col">
-                                <span>{user.username}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  {user.address.substring(0, 10)}...
-                                </span>
-                              </div>
-                            </div>
-                          )
-                        )
-                      )}
-                      {reviewerSearchQuery &&
-                        getFilteredUsers(availableUsers, reviewerSearchQuery)
-                          .length === 0 && (
-                          <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                            No users found
-                          </div>
-                        )}
-                    </div>
-                  </div>
-                </div>
-                {newTask.reviewerId && (
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-sm">Selected:</span>
-                    {(() => {
-                      const reviewer = availableUsers.find(
-                        (user) => user.id === newTask.reviewerId
-                      );
-                      return (
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-6 w-6">
-                            <AvatarImage
-                              src={reviewer?.profilePicture || "/placeholder.svg"}
-                              alt={reviewer?.username}
-                            />
-                            <AvatarFallback>
-                              {reviewer?.username?.substring(0, 2) || "RV"}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-sm">
-                            {reviewer?.username || "Unknown Reviewer"}
-                          </span>
-                        </div>
-                      );
-                    })()}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 w-6 p-0 rounded-full"
-                      onClick={() =>
-                        setNewTask({ ...newTask, reviewerId: undefined })
+                      id="title"
+                      value={newTask.title}
+                      onChange={(e) =>
+                        setNewTask({ ...newTask, title: e.target.value })
                       }
+                      placeholder="Enter a task name..."
+                      className="text-lg h-12"
+                    />
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        // Reward section enable functionality
+                        setShowRewardSection(!showRewardSection);
+                        if (!showRewardSection && !newTask.reward) {
+                          setNewTask({ ...newTask, reward: "USDC" });
+                        }
+                      }}
+                      className={showRewardSection ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-600" : ""}
                     >
-                      <XCircle className="h-4 w-4" />
+                      <DollarSign className="h-4 w-4 mr-2" />
+                      Add Reward
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const newOpenBountyState = !newTask.isOpenBounty;
+                        setNewTask({ 
+                          ...newTask, 
+                          isOpenBounty: newOpenBountyState,
+                          // Clear assignee when enabling open bounty
+                          assigneeId: newOpenBountyState ? undefined : newTask.assigneeId
+                        });
+                      }}
+                      className={newTask.isOpenBounty ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-600" : ""}
+                    >
+                      <Award className="h-4 w-4 mr-2" />
+                      Open Bounty
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setNewTask({ ...newTask, escrowEnabled: !newTask.escrowEnabled });
+                      }}
+                      className={newTask.escrowEnabled ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-600" : ""}
+                    >
+                      <Lock className="h-4 w-4 mr-2" />
+                      Enable Escrow
                     </Button>
                   </div>
-                )}
-              </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="reward">Reward (Optional)</Label>
-                    <Select
-                      value={newTask.reward || "no_reward"}
-                      onValueChange={(value) =>
-                        setNewTask({
-                          ...newTask,
-                          reward: value === "no_reward" ? undefined : value,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select token" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="no_reward">No Reward</SelectItem>
-                        <SelectItem value="USDC">USDC</SelectItem>
-                          <SelectItem value="USDT">USDT</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="rewardAmount">Amount (Optional)</Label>
-                    <Input
-                      id="rewardAmount"
-                      type="number"
-                      value={newTask.rewardAmount || ""}
+
+                  {/* Description */}
+                  <div className="space-y-2">
+                    <Textarea
+                      id="description"
+                      value={newTask.description}
                       onChange={(e) =>
-                        setNewTask({
-                          ...newTask,
-                          rewardAmount: e.target.value
-                            ? Number.parseFloat(e.target.value)
-                            : undefined,
-                        })
+                        setNewTask({ ...newTask, description: e.target.value })
                       }
-                      placeholder="0.00"
-                      disabled={!newTask.reward}
+                      placeholder='Write your description here...'
+                      className="min-h-[300px] resize-none"
                     />
                   </div>
+
+                  {/* Create Button */}
+                  <div className="pt-4">
+                    <Button
+                      onClick={handleCreateTask}
+                      disabled={isLoading}
+                      className="w-full gradient-button h-12"
+                    >
+                      {isLoading ? "Creating..." : "Create"}
+                    </Button>
+                  </div>
                 </div>
-              </div>
-              <div className="flex justify-end gap-2">
-                <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-                  Cancel
-                </Button>
-                <Button
-                  onClick={handleCreateTask}
-                  disabled={isLoading}
-                  className="gradient-button"
-                >
-                  {isLoading ? "Creating..." : "Create Task"}
-                </Button>
+
+                {/* Right Section - Metadata Sidebar */}
+                <div className="w-80 border-l bg-muted/30 overflow-y-auto p-6 space-y-6">
+                  {/* Status */}
+                  <StatusSelect
+                    value={newTask.status}
+                    onValueChange={(value) => setNewTask({ ...newTask, status: value })}
+                  />
+
+                  {/* Assignee - Hidden when Open Bounty is enabled */}
+                  {!newTask.isOpenBounty && (
+                    <UserSearchSelect
+                      label="ASSIGNEE"
+                      placeholder="Search by username or wallet address..."
+                      selectedUserId={newTask.assigneeId}
+                      availableUsers={availableUsers}
+                      isLoadingUsers={isLoadingUsers}
+                      onSelectUser={(userId) => setNewTask({ ...newTask, assigneeId: userId })}
+                      emptyLabel="Unassigned"
+                    />
+                  )}
+
+                  {/* Priority */}
+                  <PrioritySelect
+                    value={newTask.priority}
+                    onValueChange={(value) => setNewTask({ ...newTask, priority: value })}
+                  />
+
+                  {/* Task Points */}
+                  <TaskPointsInput />
+
+                  {/* Reviewers */}
+                  <UserSearchSelect
+                    label="REVIEWERS"
+                    placeholder="Search by username or wallet address..."
+                    selectedUserId={newTask.reviewerId}
+                    availableUsers={availableUsers}
+                    isLoadingUsers={isLoadingUsers}
+                    onSelectUser={(userId) => setNewTask({ ...newTask, reviewerId: userId })}
+                    emptyLabel="No Reviewer"
+                  />
+
+                  {/* Reward Section (Hidden by default, shown when Add Bounty is clicked) */}
+                  {showRewardSection && (
+                    <RewardInput
+                      reward={newTask.reward}
+                      rewardAmount={newTask.rewardAmount}
+                      onRewardChange={(reward) => setNewTask({ ...newTask, reward })}
+                      onAmountChange={(amount) => setNewTask({ ...newTask, rewardAmount: amount })}
+                      label="BOUNTY"
+                    />
+                  )}
+                </div>
               </div>
             </DialogContent>
           </Dialog>
@@ -2608,170 +2395,25 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                                           isDragDisabled={false}
                                         >
                                           {(provided, snapshot) => (
-                                            <div
-                                              ref={provided.innerRef}
-                                              {...provided.draggableProps}
-                                              {...provided.dragHandleProps}
-                                              className={`task-card ${getTaskCardClass(
-                                                task.priority
-                                              )} bg-white dark:bg-[#2a2a2a] p-3 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-[#333] shadow-sm border transition-all relative ${
-                                                selectedTasks.has(task.id)
-                                                  ? "border-purple-500 ring-2 ring-purple-200 dark:ring-purple-800 bg-purple-50 dark:bg-purple-900/20"
-                                                  : "border-gray-100 dark:border-gray-700"
-                                              } ${
-                                                snapshot.isDragging &&
-                                                selectedTasks.has(task.id)
-                                                  ? "shadow-lg opacity-90"
-                                                  : ""
-                                              }`}
+                                            <TaskCard
+                                              task={task}
+                                              isSelectionMode={isSelectionMode}
+                                              isSelected={selectedTasks.has(task.id)}
+                                              selectedCount={selectedTasks.size}
+                                              currentUserId={currentUserId}
+                                              account={account}
                                               onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (isSelectionMode) {
-                                                  toggleTaskSelection(
-                                                    task.id,
-                                                    task
-                                                  );
+                                                  toggleTaskSelection(task.id, task);
                                                 } else {
                                                   handleTaskClick(task);
                                                 }
                                               }}
-                                            >
-                                              <div className="flex items-start gap-2">
-                                                {/* Selection Checkbox */}
-                                                {isSelectionMode && (
-                                                  <div className="mt-1 flex-shrink-0">
-                                                    {task.reward &&
-                                                    task.rewardAmount &&
-                                                    !task.paid ? (
-                                                      selectedTasks.has(
-                                                        task.id
-                                                      ) ? (
-                                                        <CheckSquare className="h-5 w-5 text-purple-600" />
-                                                      ) : (
-                                                        <Square className="h-5 w-5 text-gray-400" />
-                                                      )
-                                                    ) : (
-                                                      <Square className="h-5 w-5 text-gray-300 opacity-50" />
-                                                    )}
-                                                  </div>
-                                                )}
-
-                                                <div className="flex-1 min-w-0">
-                                                  <div className="mb-2 font-medium truncate">
-                                                    {task.title}
-                                                  </div>
-                                                  <div className="mb-2 text-sm text-muted-foreground line-clamp-2">
-                                                    {task.description?.length >
-                                                    100
-                                                      ? `${task.description.substring(
-                                                          0,
-                                                          100
-                                                        )}...`
-                                                      : task.description}
-                                                  </div>
-
-                                                  {/* Rest of task card content... */}
-                                                  <div className="flex items-center justify-between">
-                                                    <div
-                                                      className={`rounded-full px-2 py-1 text-xs ${
-                                                        task.priority === "high"
-                                                          ? "priority-badge-high"
-                                                          : task.priority ===
-                                                            "medium"
-                                                          ? "priority-badge-medium"
-                                                          : "priority-badge-low"
-                                                      }`}
-                                                    >
-                                                      {task.priority
-                                                        .charAt(0)
-                                                        .toUpperCase() +
-                                                        task.priority.slice(1)}
-                                                    </div>
-                                                    {task.reward &&
-                                                      task.rewardAmount && (
-                                                        <div className="rounded-full bg-amber-100 dark:bg-amber-600/20 px-2 py-1 text-xs text-amber-600 dark:text-amber-400 font-semibold border border-amber-200 dark:border-amber-500/50">
-                                                          {task.rewardAmount}{" "}
-                                                          {task.reward}
-                                                        </div>
-                                                      )}
-                                                    {task.isOpenBounty && (
-                                                      <Badge
-                                                        variant="outline"
-                                                        className="ml-1 text-xs bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/40"
-                                                      >
-                                                        Open
-                                                      </Badge>
-                                                    )}
-                                                    {task.escrowEnabled && (
-                                                      <Badge
-                                                        variant="outline"
-                                                        className="ml-1 text-xs bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/40"
-                                                      >
-                                                        Escrow
-                                                      </Badge>
-                                                    )}
-                                                  </div>
-
-                                                  <div className="mt-2 flex items-center justify-between">
-                                                    {task.assignee ? (
-                                                      <div className="flex items-center gap-2">
-                                                        <Avatar className="h-5 w-5">
-                                                          <AvatarImage
-                                                            src={
-                                                              task.assignee
-                                                                .profilePicture ||
-                                                              "/placeholder.svg"
-                                                            }
-                                                            alt={
-                                                              task.assignee
-                                                                .username ||
-                                                              "Assignee"
-                                                            }
-                                                          />
-                                                          <AvatarFallback>
-                                                            {task.assignee.username
-                                                              ?.substring(0, 2)
-                                                              .toUpperCase() ||
-                                                              "??"}
-                                                          </AvatarFallback>
-                                                        </Avatar>
-                                                        <span className="text-xs text-muted-foreground truncate max-w-[100px]">
-                                                          {task.assignee
-                                                            .username ||
-                                                            "Unknown"}
-                                                        </span>
-                                                      </div>
-                                                    ) : (
-                                                      <span className="text-xs text-muted-foreground">
-                                                        Unassigned
-                                                      </span>
-                                                    )}
-                                                    <div className="flex items-center gap-1">
-                                                      {task.assigneeId ===
-                                                        account &&
-                                                        task.userId !==
-                                                          account && (
-                                                          <Badge
-                                                            variant="outline"
-                                                            className="text-xs bg-blue-100 dark:bg-blue-600/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-600/20"
-                                                          >
-                                                            Assigned
-                                                          </Badge>
-                                                        )}
-                                                    </div>
-                                                  </div>
-                                                </div>
-
-                                                {/* Batch count badge */}
-                                                {isSelectionMode &&
-                                                  selectedTasks.has(task.id) &&
-                                                  selectedTasks.size > 1 && (
-                                                    <div className="absolute top-2 right-2 bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
-                                                      {selectedTasks.size}
-                                                    </div>
-                                                  )}
-                                              </div>
-                                            </div>
+                                              isDragging={snapshot.isDragging}
+                                              provided={provided}
+                                              snapshot={snapshot}
+                                            />
                                           )}
                                         </Draggable>
                                       );
@@ -2800,139 +2442,25 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                                           isDragDisabled={false}
                                         >
                                           {(provided, snapshot) => (
-                                            <div
-                                              ref={provided.innerRef}
-                                              {...provided.draggableProps}
-                                              {...provided.dragHandleProps}
-                                              className={`task-card ${getTaskCardClass(
-                                                task.priority
-                                              )} bg-white dark:bg-[#2a2a2a] p-3 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-[#333] shadow-sm border transition-all relative ${
-                                                selectedTasks.has(task.id)
-                                                  ? "border-purple-500 ring-2 ring-purple-200 dark:ring-purple-800 bg-purple-50 dark:bg-purple-900/20"
-                                                  : "border-gray-100 dark:border-gray-700"
-                                              } ${
-                                                snapshot.isDragging &&
-                                                selectedTasks.has(task.id)
-                                                  ? "shadow-lg opacity-90"
-                                                  : ""
-                                              }`}
+                                            <TaskCard
+                                              task={task}
+                                              isSelectionMode={isSelectionMode}
+                                              isSelected={selectedTasks.has(task.id)}
+                                              selectedCount={selectedTasks.size}
+                                              currentUserId={currentUserId}
+                                              account={account}
                                               onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (isSelectionMode) {
-                                                  toggleTaskSelection(
-                                                    task.id,
-                                                    task
-                                                  );
+                                                  toggleTaskSelection(task.id, task);
                                                 } else {
                                                   handleTaskClick(task);
                                                 }
                                               }}
-                                            >
-                                              <div className="flex items-start gap-2">
-                                                {/* Selection Checkbox */}
-                                                {isSelectionMode && (
-                                                  <div className="mt-1 flex-shrink-0">
-                                                    <Square className="h-5 w-5 text-gray-300 opacity-50" />
-                                                  </div>
-                                                )}
-
-                                                <div className="flex-1 min-w-0">
-                                                  <div className="mb-2 font-medium truncate">
-                                                    {task.title}
-                                                  </div>
-                                                  <div className="mb-2 text-sm text-muted-foreground line-clamp-2">
-                                                    {task.description?.length >
-                                                    100
-                                                      ? `${task.description.substring(
-                                                          0,
-                                                          100
-                                                        )}...`
-                                                      : task.description}
-                                                  </div>
-
-                                                  {/* Rest of task card content... */}
-                                                  <div className="flex items-center justify-between">
-                                                    <div
-                                                      className={`rounded-full px-2 py-1 text-xs ${
-                                                        task.priority === "high"
-                                                          ? "priority-badge-high"
-                                                          : task.priority ===
-                                                            "medium"
-                                                          ? "priority-badge-medium"
-                                                          : "priority-badge-low"
-                                                      }`}
-                                                    >
-                                                      {task.priority
-                                                        .charAt(0)
-                                                        .toUpperCase() +
-                                                        task.priority.slice(1)}
-                                                    </div>
-                                                    {task.reward &&
-                                                      task.rewardAmount && (
-                                                        <div className="rounded-full bg-green-100 dark:bg-green-600/20 px-2 py-1 text-xs text-green-600 dark:text-green-400 font-semibold border border-green-200 dark:border-green-500/50">
-                                                          {task.rewardAmount}{" "}
-                                                          {task.reward}
-                                                        </div>
-                                                      )}
-                                                    {task.paid && (
-                                                      <Badge
-                                                        variant="outline"
-                                                        className="ml-1 bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-500 border-green-200 dark:border-green-500/50"
-                                                      >
-                                                        Paid
-                                                      </Badge>
-                                                    )}
-                                                  </div>
-
-                                                  <div className="mt-2 flex items-center justify-between">
-                                                    {task.assignee ? (
-                                                      <div className="flex items-center gap-2">
-                                                        <Avatar className="h-5 w-5">
-                                                          <AvatarImage
-                                                            src={
-                                                              task.assignee
-                                                                .profilePicture ||
-                                                              "/placeholder.svg"
-                                                            }
-                                                            alt={
-                                                              task.assignee
-                                                                .username ||
-                                                              "Assignee"
-                                                            }
-                                                          />
-                                                          <AvatarFallback>
-                                                            {task.assignee.username
-                                                              ?.substring(0, 2)
-                                                              .toUpperCase() ||
-                                                              "??"}
-                                                          </AvatarFallback>
-                                                        </Avatar>
-                                                        <span className="text-xs text-muted-foreground truncate max-w-[100px]">
-                                                          {task.assignee
-                                                            .username ||
-                                                            "Unknown"}
-                                                        </span>
-                                                      </div>
-                                                    ) : (
-                                                      <span className="text-xs text-muted-foreground">
-                                                        Unassigned
-                                                      </span>
-                                                    )}
-                                                    <div className="flex items-center gap-1">
-                                                      {task.userId ===
-                                                        account && (
-                                                        <Badge
-                                                          variant="outline"
-                                                          className="text-xs bg-purple-100 dark:bg-purple-600/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-600/20"
-                                                        >
-                                                          Owner
-                                                        </Badge>
-                                                      )}
-                                                    </div>
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            </div>
+                                              isDragging={snapshot.isDragging}
+                                              provided={provided}
+                                              snapshot={snapshot}
+                                            />
                                           )}
                                         </Draggable>
                                       );
@@ -2970,25 +2498,16 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                             key={task.id}
                             draggableId={task.id}
                             index={index}
-                            isDragDisabled={false} // Allow dragging even in selection mode for multi-select batch moves
+                            isDragDisabled={false}
                           >
                             {(provided, snapshot) => (
-                              <div
-                                ref={provided.innerRef}
-                                {...provided.draggableProps}
-                                {...provided.dragHandleProps}
-                                className={`task-card ${getTaskCardClass(
-                                  task.priority
-                                )} bg-white dark:bg-[#2a2a2a] p-3 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-[#333] shadow-sm border transition-all relative ${
-                                  selectedTasks.has(task.id)
-                                    ? "border-purple-500 ring-2 ring-purple-200 dark:ring-purple-800 bg-purple-50 dark:bg-purple-900/20"
-                                    : "border-gray-100 dark:border-gray-700"
-                                } ${
-                                  snapshot.isDragging &&
-                                  selectedTasks.has(task.id)
-                                    ? "shadow-lg opacity-90"
-                                    : ""
-                                }`}
+                              <TaskCard
+                                task={task}
+                                isSelectionMode={isSelectionMode}
+                                isSelected={selectedTasks.has(task.id)}
+                                selectedCount={selectedTasks.size}
+                                currentUserId={currentUserId}
+                                account={account}
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   if (isSelectionMode) {
@@ -2997,171 +2516,10 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                                     handleTaskClick(task);
                                   }
                                 }}
-                              >
-                                <div className="flex items-start gap-2">
-                                  {/* Selection Checkbox */}
-                                  {isSelectionMode && (
-                                    <div className="mt-1 flex-shrink-0">
-                                      {task.reward &&
-                                      task.rewardAmount &&
-                                      !task.paid ? (
-                                        selectedTasks.has(task.id) ? (
-                                          <CheckSquare className="h-5 w-5 text-purple-600" />
-                                        ) : (
-                                          <Square className="h-5 w-5 text-gray-400" />
-                                        )
-                                      ) : (
-                                        <Square className="h-5 w-5 text-gray-300 opacity-50" />
-                                      )}
-                                    </div>
-                                  )}
-
-                                  <div className="flex-1 min-w-0">
-                                    <div className="mb-2 font-medium truncate">
-                                      {task.title}
-                                    </div>
-                                    <div className="mb-2 text-sm text-muted-foreground line-clamp-2">
-                                      {task.description?.length > 100
-                                        ? `${task.description.substring(
-                                            0,
-                                            100
-                                          )}...`
-                                        : task.description}
-                                    </div>
-
-                                    {/* Rest of task card content... */}
-                                    <div className="flex items-center justify-between">
-                                      <div
-                                        className={`rounded-full px-2 py-1 text-xs ${
-                                          task.priority === "high"
-                                            ? "priority-badge-high"
-                                            : task.priority === "medium"
-                                            ? "priority-badge-medium"
-                                            : "priority-badge-low"
-                                        }`}
-                                      >
-                                        {task.priority.charAt(0).toUpperCase() +
-                                          task.priority.slice(1)}
-                                      </div>
-                                      {task.reward && task.rewardAmount && (
-                                        <div className="rounded-full bg-purple-100 dark:bg-purple-600/20 px-2 py-1 text-xs text-purple-600 dark:text-purple-400">
-                                          {task.rewardAmount} {task.reward}
-                                        </div>
-                                      )}
-                                      {task.isOpenBounty && (
-                                        <Badge
-                                          variant="outline"
-                                          className="ml-1 text-xs bg-amber-50 dark:bg-amber-500/10 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/30"
-                                        >
-                                          Open
-                                        </Badge>
-                                      )}
-                                      {task.escrowEnabled && (
-                                        <Badge
-                                          variant="outline"
-                                          className="ml-1 text-xs bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/30"
-                                        >
-                                          Escrow
-                                        </Badge>
-                                      )}
-                                      {task.paid && (
-                                        <Badge
-                                          variant="outline"
-                                          className="ml-1 bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-500 border-green-200 dark:border-green-500/50"
-                                        >
-                                          Paid
-                                        </Badge>
-                                      )}
-                                    </div>
-
-                                    <div className="mt-2 flex items-center justify-between">
-                                      {task.assignee ? (
-                                        <div className="flex items-center gap-2">
-                                          <Avatar className="h-5 w-5">
-                                            <AvatarImage
-                                              src={
-                                                task.assignee.profilePicture ||
-                                                "/placeholder.svg"
-                                              }
-                                              alt={
-                                                task.assignee.username ||
-                                                "Assignee"
-                                              }
-                                            />
-                                            <AvatarFallback>
-                                              {task.assignee.username
-                                                ?.substring(0, 2)
-                                                .toUpperCase() || "??"}
-                                            </AvatarFallback>
-                                          </Avatar>
-                                          <span className="text-xs text-muted-foreground truncate max-w-[100px]">
-                                            {task.assignee.username ||
-                                              "Unknown"}
-                                          </span>
-                                        </div>
-                                      ) : task.assigneeId ? (
-                                        <div className="flex items-center gap-2">
-                                          <Avatar className="h-5 w-5">
-                                            <AvatarFallback>?</AvatarFallback>
-                                          </Avatar>
-                                          <span className="text-xs text-muted-foreground">
-                                            {task.assigneeId === currentUserId
-                                              ? "You"
-                                              : "Assigned"}
-                                          </span>
-                                        </div>
-                                      ) : (
-                                        <div className="flex items-center gap-2">
-                                          <User className="h-4 w-4 text-muted-foreground" />
-                                          <span className="text-xs text-muted-foreground">
-                                            Unassigned
-                                          </span>
-                                        </div>
-                                      )}
-
-                                      <div className="flex items-center gap-1">
-                                        {/* Show paid badge if task is paid */}
-                                        {task.paid && (
-                                          <Badge
-                                            variant="outline"
-                                            className="text-xs bg-green-100 dark:bg-green-600/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-600/20"
-                                          >
-                                            Paid
-                                          </Badge>
-                                        )}
-
-                                        {/* Show task ownership indicator */}
-                                        {task.userId === account && (
-                                          <Badge
-                                            variant="outline"
-                                            className="text-xs bg-purple-100 dark:bg-purple-600/10 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-600/20"
-                                          >
-                                            Owner
-                                          </Badge>
-                                        )}
-                                        {task.assigneeId === currentUserId &&
-                                          task.userId !== account && (
-                                            <Badge
-                                              variant="outline"
-                                              className="text-xs bg-blue-100 dark:bg-blue-600/10 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-600/20"
-                                            >
-                                              Assignee
-                                            </Badge>
-                                          )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-
-                                {/* Batch count indicator when dragging multiple tasks */}
-                                {isSelectionMode &&
-                                  selectedTasks.has(task.id) &&
-                                  selectedTasks.size > 1 && (
-                                    <div className="absolute top-2 right-2 bg-purple-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">
-                                      {selectedTasks.size}
-                                    </div>
-                                  )}
-                              </div>
+                                isDragging={snapshot.isDragging}
+                                provided={provided}
+                                snapshot={snapshot}
+                              />
                             )}
                           </Draggable>
                         ))
@@ -3323,258 +2681,32 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                           </SelectContent>
                         </Select>
                       </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="edit-assignee">Assignee</Label>
-                        <div className="relative">
-                          <Input
+                      {/* Assignee - Hidden when Open Bounty is enabled */}
+                      {!editedTask.isOpenBounty && (
+                        <div className="grid gap-2">
+                          <UserSearchSelect
+                            label="Assignee"
                             placeholder="Search by username or wallet address..."
-                            value={assigneeSearchQuery}
-                            onChange={(e) =>
-                              setAssigneeSearchQuery(e.target.value)
-                            }
-                            className="w-full"
+                            selectedUserId={editedTask.assigneeId}
+                            availableUsers={availableUsers}
+                            isLoadingUsers={isLoadingUsers}
+                            onSelectUser={(userId) => setEditedTask({ ...editedTask, assigneeId: userId })}
+                            emptyLabel="Unassigned"
                           />
-                          <div
-                            className={`absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-md ${
-                              assigneeSearchQuery ? "block" : "hidden"
-                            }`}
-                          >
-                            <div className="max-h-60 overflow-auto p-1">
-                              <div
-                                className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent"
-                                onClick={() => {
-                                  setEditedTask({
-                                    ...editedTask,
-                                    assigneeId: undefined,
-                                  });
-                                  setAssigneeSearchQuery("");
-                                }}
-                              >
-                                <User className="h-4 w-4" />
-                                <span>Unassigned</span>
-                              </div>
-                              {isLoadingUsers ? (
-                                <div className="flex items-center justify-center p-2">
-                                  <Loader2 className="h-4 w-4 animate-spin" />
-                                </div>
-                              ) : (
-                                getFilteredUsers(
-                                  availableUsers,
-                                  assigneeSearchQuery
-                                ).map((user) => (
-                                  <div
-                                    key={user.id}
-                                    className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent"
-                                    onClick={() => {
-                                      setEditedTask({
-                                        ...editedTask,
-                                        assigneeId: user.id,
-                                      });
-                                      setAssigneeSearchQuery("");
-                                    }}
-                                  >
-                                    <Avatar className="h-6 w-6">
-                                      <AvatarImage
-                                        src={
-                                          user.profilePicture ||
-                                          "/placeholder.svg"
-                                        }
-                                        alt={user.username}
-                                      />
-                                      <AvatarFallback>
-                                        {user.username.substring(0, 2)}
-                                      </AvatarFallback>
-                                    </Avatar>
-                                    <div className="flex flex-col">
-                                      <span>{user.username}</span>
-                                      <span className="text-xs text-muted-foreground">
-                                        {user.address.substring(0, 10)}...
-                                      </span>
-                                    </div>
-                                  </div>
-                                ))
-                              )}
-                              {assigneeSearchQuery &&
-                                getFilteredUsers(
-                                  availableUsers,
-                                  assigneeSearchQuery
-                                ).length === 0 && (
-                                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                                    No users found
-                                  </div>
-                                )}
-                            </div>
-                          </div>
                         </div>
-                        {editedTask.assigneeId && (
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="text-sm">Selected:</span>
-                            {(() => {
-                              const user = availableUsers.find(
-                                (user) => user.id === editedTask.assigneeId
-                              );
-                              return (
-                                <div className="flex items-center gap-2">
-                                  <Avatar className="h-6 w-6">
-                                    <AvatarImage
-                                      src={
-                                        user?.profilePicture ||
-                                        "/placeholder.svg"
-                                      }
-                                      alt={user?.username}
-                                    />
-                                    <AvatarFallback>
-                                      {user?.username?.substring(0, 2) || "UN"}
-                                    </AvatarFallback>
-                                  </Avatar>
-                                  <span className="text-sm">
-                                    {user?.username || "Unknown User"}
-                                  </span>
-                                </div>
-                              );
-                            })()}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-6 w-6 p-0 rounded-full"
-                              onClick={() =>
-                                setEditedTask({
-                                  ...editedTask,
-                                  assigneeId: undefined,
-                                })
-                              }
-                            >
-                              <XCircle className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="edit-reviewer">Reviewer</Label>
-                    <div className="relative">
-                      <Input
-                        placeholder="Search by username or wallet address..."
-                        value={reviewerSearchQuery}
-                        onChange={(e) =>
-                          setReviewerSearchQuery(e.target.value)
-                        }
-                        className="w-full"
-                      />
-                      <div
-                        className={`absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-md ${
-                          reviewerSearchQuery ? "block" : "hidden"
-                        }`}
-                      >
-                        <div className="max-h-60 overflow-auto p-1">
-                          <div
-                            className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent"
-                            onClick={() => {
-                              setEditedTask({
-                                ...editedTask,
-                                reviewerId: undefined,
-                              });
-                              setReviewerSearchQuery("");
-                            }}
-                          >
-                            <User className="h-4 w-4" />
-                            <span>No Reviewer</span>
-                          </div>
-                          {isLoadingUsers ? (
-                            <div className="flex items-center justify-center p-2">
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            </div>
-                          ) : (
-                            getFilteredUsers(
-                              availableUsers,
-                              reviewerSearchQuery
-                            ).map((user) => (
-                              <div
-                                key={user.id}
-                                className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent"
-                                onClick={() => {
-                                  setEditedTask({
-                                    ...editedTask,
-                                    reviewerId: user.id,
-                                  });
-                                  setReviewerSearchQuery("");
-                                }}
-                              >
-                                <Avatar className="h-6 w-6">
-                                  <AvatarImage
-                                    src={
-                                      user.profilePicture || "/placeholder.svg"
-                                    }
-                                    alt={user.username}
-                                  />
-                                  <AvatarFallback>
-                                    {user.username.substring(0, 2)}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div className="flex flex-col">
-                                  <span>{user.username}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {user.address.substring(0, 10)}...
-                                  </span>
-                                </div>
-                              </div>
-                            ))
-                          )}
-                          {reviewerSearchQuery &&
-                            getFilteredUsers(
-                              availableUsers,
-                              reviewerSearchQuery
-                            ).length === 0 && (
-                              <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                                No users found
-                              </div>
-                            )}
-                        </div>
-                      </div>
-                    </div>
-                    {editedTask.reviewerId && (
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-sm">Selected:</span>
-                        {(() => {
-                          const reviewer = availableUsers.find(
-                            (user) => user.id === editedTask.reviewerId
-                          );
-                          return (
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-6 w-6">
-                                <AvatarImage
-                                  src={
-                                    reviewer?.profilePicture ||
-                                    "/placeholder.svg"
-                                  }
-                                  alt={reviewer?.username}
-                                />
-                                <AvatarFallback>
-                                  {reviewer?.username?.substring(0, 2) || "RV"}
-                                </AvatarFallback>
-                              </Avatar>
-                              <span className="text-sm">
-                                {reviewer?.username || "Unknown Reviewer"}
-                              </span>
-                            </div>
-                          );
-                        })()}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-6 w-6 p-0 rounded-full"
-                          onClick={() =>
-                            setEditedTask({
-                              ...editedTask,
-                              reviewerId: undefined,
-                            })
-                          }
-                        >
-                          <XCircle className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
+                    <UserSearchSelect
+                      label="Reviewer"
+                      placeholder="Search by username or wallet address..."
+                      selectedUserId={editedTask.reviewerId}
+                      availableUsers={availableUsers}
+                      isLoadingUsers={isLoadingUsers}
+                      onSelectUser={(userId) => setEditedTask({ ...editedTask, reviewerId: userId })}
+                      emptyLabel="No Reviewer"
+                    />
                   </div>
                 </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -3632,25 +2764,8 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                         setEditedTask({
                           ...editedTask,
                           isOpenBounty: checked,
-                        })
-                      }
-                    />
-                  </div>
-                  <div className="flex items-start justify-between rounded-md border p-3">
-                    <div className="pr-4">
-                      <Label className="text-sm font-medium">
-                        Escrow Payment
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Lock the reward in escrow for this task.
-                      </p>
-                    </div>
-                    <Switch
-                      checked={Boolean(editedTask.escrowEnabled)}
-                      onCheckedChange={(checked) =>
-                        setEditedTask({
-                          ...editedTask,
-                          escrowEnabled: checked,
+                          // Clear assignee when enabling open bounty
+                          assigneeId: checked ? undefined : editedTask.assigneeId,
                         })
                       }
                     />
@@ -4343,44 +3458,6 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                     </div>
                   )
                 )}
-                <div className="pt-2 border-t border-purple-200 dark:border-purple-700">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm">Total Tasks:</span>
-                    <span className="font-medium">
-                      {getSelectedTasksDetails().length}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div className="grid gap-4">
-                <div className="flex items-start justify-between rounded-md border p-3">
-                  <div className="pr-4">
-                    <Label className="text-sm font-medium">Open Bounty</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Allow contributors to submit proposals for this task.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={Boolean(newTask.isOpenBounty)}
-                    onCheckedChange={(checked) =>
-                      setNewTask({ ...newTask, isOpenBounty: checked })
-                    }
-                  />
-                </div>
-                <div className="flex items-start justify-between rounded-md border p-3">
-                  <div className="pr-4">
-                    <Label className="text-sm font-medium">Escrow Payment</Label>
-                    <p className="text-xs text-muted-foreground">
-                      Lock the reward amount in escrow when the task is created.
-                    </p>
-                  </div>
-                  <Switch
-                    checked={Boolean(newTask.escrowEnabled)}
-                    onCheckedChange={(checked) =>
-                      setNewTask({ ...newTask, escrowEnabled: checked })
-                    }
-                  />
-                </div>
               </div>
             </div>
 

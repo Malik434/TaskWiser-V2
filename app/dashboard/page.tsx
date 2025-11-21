@@ -8,7 +8,7 @@ import { useWeb3 } from "@/components/web3-provider";
 import { useFirebase } from "@/components/firebase-provider";
 import { WalletConnectionCard } from "@/components/wallet-connection-card";
 import { useToast } from "@/components/ui/use-toast";
-import type { Task, UserProfile } from "@/lib/types";
+import type { Task, UserProfile, Project } from "@/lib/types";
 import {
   CheckCircle,
   Clock,
@@ -58,11 +58,12 @@ interface DashboardStats {
 
 export default function MyTaskboardPage() {
   const { isConnected, account } = useWeb3();
-  const { getAllTasks, updateTask, getUserProfile } = useFirebase();
+  const { getAllTasks, updateTask, getUserProfile, getProjects } = useFirebase();
   const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalAssigned: 0,
     completed: 0,
@@ -127,6 +128,10 @@ export default function MyTaskboardPage() {
       const assignedTasks = allTasks.filter(
         (task) => task.assigneeId === userProfile.id
       );
+
+      // Fetch projects
+      const allProjects = await getProjects();
+      setProjects(allProjects);
 
       setTasks(assignedTasks);
       calculateStats(assignedTasks);
@@ -583,18 +588,27 @@ export default function MyTaskboardPage() {
                             )}
                           </Dialog>
                           <div className="text-right">
-                            {task.userId && (
-                              <div className="flex items-center justify-end gap-2 mb-2">
-                                <Avatar className="h-6 w-6">
-                                  <AvatarFallback className="text-xs">
-                                    PO
-                                  </AvatarFallback>
-                                </Avatar>
-                                <span className="text-xs text-muted-foreground">
-                                  Owner
-                                </span>
-                              </div>
-                            )}
+                            {/* Project Information */}
+                            {(() => {
+                              const project = task.projectId 
+                                ? projects.find(p => p.id === task.projectId)
+                                : null;
+                              
+                              return (
+                                <div className="flex items-center justify-end gap-2 mb-2">
+                                  <Avatar className="h-6 w-6">
+                                    <AvatarFallback className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                                      {project?.title 
+                                        ? project.title.substring(0, 2).toUpperCase()
+                                        : "UK"}
+                                    </AvatarFallback>
+                                  </Avatar>
+                                  <span className="text-xs text-muted-foreground">
+                                    {project?.title || "Unknown Project"}
+                                  </span>
+                                </div>
+                              );
+                            })()}
                             <p className="text-xs text-muted-foreground">
                               {new Date(task.createdAt).toLocaleDateString()}
                             </p>

@@ -9,7 +9,8 @@ import {
   User,
   ChevronLeft,
   ChevronRight,
-  Folder,
+  LayoutDashboard,
+  Telescope,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -67,9 +68,9 @@ export function Sidebar() {
   };
 
   const navigation = [
-    { name: "Explore", href: "/explore", icon: Home },
-    { name: "Projects", href: "/projects", icon: Folder },
-    { name: "Dashboard", href: "/dashboard", icon: Kanban },
+    { name: "Explore", href: "/explore", icon: Telescope },
+    { name: "Projects", href: "/projects", icon: Kanban },
+    { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Profile", href: "/profile", icon: User },
   ];
 
@@ -133,7 +134,7 @@ export function Sidebar() {
               <item.icon className="h-5 w-5 flex-shrink-0" />
               {!collapsed && <span>{item.name}</span>}
               {collapsed && (
-                <span className="absolute left-full ml-2 w-auto min-w-max rounded-md bg-black px-2 py-1 text-xs font-medium text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100">
+                <span className="absolute left-full ml-2 w-auto min-w-max rounded-md bg-black px-2 py-1 text-xs font-medium text-white opacity-0 shadow-md transition-opacity group-hover:opacity-100 z-50">
                   {item.name}
                 </span>
               )}

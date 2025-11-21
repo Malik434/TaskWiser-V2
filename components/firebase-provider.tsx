@@ -419,10 +419,26 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       return "";
     }
     try {
-      const docRef = await addDoc(collection(db, "projects"), project);
-        // Also save the ID in the document itself for easier querying
-        await updateDoc(docRef, { id: docRef.id });
-        return docRef.id;
+      // Get the user profile to add them as admin
+      const userProfile = await getUserProfile(project.createdBy);
+      
+      // Prepare the project data with the creator as admin
+      const projectData = {
+        ...project,
+        members: userProfile ? [
+          {
+            userId: userProfile.id,
+            role: "admin" as const,
+            joinedAt: new Date().toISOString(),
+            isActive: true,
+          }
+        ] : [],
+      };
+      
+      const docRef = await addDoc(collection(db, "projects"), projectData);
+      // Also save the ID in the document itself for easier querying
+      await updateDoc(docRef, { id: docRef.id });
+      return docRef.id;
     } catch (error) {
       console.error("Error adding project:", error);
       return "";

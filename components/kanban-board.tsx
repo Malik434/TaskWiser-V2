@@ -193,6 +193,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   // Specific loading states for better UX
   const [isCreatingTask, setIsCreatingTask] = useState(false);
   const [isUpdatingTask, setIsUpdatingTask] = useState(false);
+  const [isRealtimeSyncing, setIsRealtimeSyncing] = useState(false);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
   const [isFetchingTasks, setIsFetchingTasks] = useState(false);
 
@@ -242,9 +243,20 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     );
   };
 
+  const fetchUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      const users = await getUserProfiles();
+      setAvailableUsers(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
   useEffect(() => {
     if (account && isInitialized) {
-      fetchAllTasks();
       fetchUsers();
       // fetch and cache current user's profile id for UI comparisons
       (async () => {
@@ -256,6 +268,16 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
           setCurrentUserId(null);
         }
       })();
+      
+      // Set up real-time listeners
+      const unsubscribe = setupRealtimeListeners();
+      
+      // Cleanup function to unsubscribe from listeners
+      return () => {
+        if (unsubscribe) {
+          unsubscribe();
+        }
+      };
     }
   }, [account, isInitialized, projectId]);
 
@@ -689,16 +711,310 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     setColumns(updatedColumns);
   };
 
-  const fetchUsers = async () => {
-    setIsLoadingUsers(true);
-    try {
-      const users = await getUserProfiles();
-      setAvailableUsers(users);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-    } finally {
-      setIsLoadingUsers(false);
-    }
+  // Setup real-time listeners for tasks
+  const setupRealtimeListeners = () => {
+    if (!account || !firebase.db) return;
+
+    setIsLoading(true);
+    let unsubscribeTasks: (() => void) | null = null;
+
+    (async () => {
+      try {
+        const { collection, query, where, onSnapshot } = await import(
+          "firebase/firestore"
+        );
+
+        if (projectId) {
+          // For project board: verify membership first
+          const project = await getProjectById(projectId);
+          setCurrentProject(project);
+          
+          if (!project) {
+            toast({
+              title: "Project not found",
+              description: "The project you're looking for doesn't exist",
+              variant: "destructive",
+            });
+            setIsLoading(false);
+            return;
+          }
+
+          // Get current user's profile to check membership
+          const userProfile = await getUserProfile(account);
+          const userId = userProfile?.id || account;
+
+          // Check if user is the creator OR a project member
+          const isCreator = project.createdBy === account;
+          const memberInfo = project.members?.find(
+            (member: any) => member.userId === userId && member.isActive
+          );
+          
+          const isMember = !!memberInfo;
+          setIsProjectMember(isCreator || isMember);
+
+          // Set user's role in the project
+          if (isCreator) {
+            setUserProjectRole("admin");
+          } else if (memberInfo) {
+            setUserProjectRole(memberInfo.role);
+          } else {
+            setUserProjectRole(null);
+          }
+
+          if (!isCreator && !isMember) {
+            toast({
+              title: "Access Denied",
+              description: "You are not a member of this project",
+              variant: "destructive",
+            });
+            setIsLoading(false);
+            return;
+          }
+
+          // Set up real-time listener for project tasks
+          const projectTasksQuery = query(
+            collection(firebase.db!, "tasks"),
+            where("projectId", "==", projectId)
+          );
+
+          unsubscribeTasks = onSnapshot(
+            projectTasksQuery,
+            async (snapshot) => {
+              console.log("Real-time update: Project tasks changed");
+              setIsRealtimeSyncing(true);
+              const tasks = await Promise.all(
+                snapshot.docs.map(async (doc) => {
+                  const taskData = { id: doc.id, ...doc.data() } as Task;
+                  
+                  // Populate assignee/reviewer info if needed
+                  if (taskData.assigneeId && !taskData.assignee) {
+                    try {
+                      const assigneeProfile = await getUserProfileById(taskData.assigneeId);
+                      if (assigneeProfile) {
+                        taskData.assignee = {
+                          id: assigneeProfile.id,
+                          username: assigneeProfile.username,
+                          profilePicture: assigneeProfile.profilePicture,
+                        };
+                      }
+                    } catch (e) {
+                      console.warn("Could not fetch assignee profile", e);
+                    }
+                  }
+
+                  if (taskData.reviewerId && !taskData.reviewer) {
+                    try {
+                      const reviewerProfile = await getUserProfileById(taskData.reviewerId);
+                      if (reviewerProfile) {
+                        taskData.reviewer = {
+                          id: reviewerProfile.id,
+                          username: reviewerProfile.username,
+                          profilePicture: reviewerProfile.profilePicture,
+                        };
+                      }
+                    } catch (e) {
+                      console.warn("Could not fetch reviewer profile", e);
+                    }
+                  }
+
+                  return taskData;
+                })
+              );
+
+              setAllTasks(tasks);
+              setCreatedTasks(tasks);
+              setIsLoading(false);
+              setTimeout(() => setIsRealtimeSyncing(false), 1000);
+            },
+            (error) => {
+              console.error("Error in real-time listener:", error);
+              toast({
+                title: "Connection Error",
+                description: "Failed to sync tasks. Please refresh the page.",
+                variant: "destructive",
+              });
+              setIsLoading(false);
+            }
+          );
+        } else {
+          // For personal board: reset project-specific states
+          setCurrentProject(null);
+          setIsProjectMember(false);
+          setUserProjectRole(null);
+
+          // Get user profile ID for assignee lookup
+          let assigneeLookupId = account;
+          try {
+            const _profile = await getUserProfile(account);
+            if (_profile && _profile.id) assigneeLookupId = _profile.id;
+          } catch (e) {
+            console.warn("Could not resolve user profile for assignee lookup", e);
+          }
+
+          // Set up real-time listener for tasks created by user
+          const createdTasksQuery = query(
+            collection(firebase.db!, "tasks"),
+            where("userId", "==", account)
+          );
+
+          // Set up real-time listener for tasks assigned to user
+          const assignedTasksQuery = query(
+            collection(firebase.db!, "tasks"),
+            where("assigneeId", "==", assigneeLookupId)
+          );
+
+          let createdTasksData: Task[] = [];
+          let assignedTasksData: Task[] = [];
+
+          const unsubscribeCreated = onSnapshot(
+            createdTasksQuery,
+            async (snapshot) => {
+              console.log("Real-time update: Created tasks changed");
+              setIsRealtimeSyncing(true);
+              createdTasksData = await Promise.all(
+                snapshot.docs.map(async (doc) => {
+                  const taskData = { id: doc.id, ...doc.data() } as Task;
+                  
+                  // Populate assignee/reviewer info
+                  if (taskData.assigneeId && !taskData.assignee) {
+                    try {
+                      const assigneeProfile = await getUserProfileById(taskData.assigneeId);
+                      if (assigneeProfile) {
+                        taskData.assignee = {
+                          id: assigneeProfile.id,
+                          username: assigneeProfile.username,
+                          profilePicture: assigneeProfile.profilePicture,
+                        };
+                      }
+                    } catch (e) {
+                      console.warn("Could not fetch assignee profile", e);
+                    }
+                  }
+
+                  if (taskData.reviewerId && !taskData.reviewer) {
+                    try {
+                      const reviewerProfile = await getUserProfileById(taskData.reviewerId);
+                      if (reviewerProfile) {
+                        taskData.reviewer = {
+                          id: reviewerProfile.id,
+                          username: reviewerProfile.username,
+                          profilePicture: reviewerProfile.profilePicture,
+                        };
+                      }
+                    } catch (e) {
+                      console.warn("Could not fetch reviewer profile", e);
+                    }
+                  }
+
+                  return taskData;
+                })
+              );
+
+              setCreatedTasks(createdTasksData);
+              
+              // Combine and update allTasks
+              const combined = [...createdTasksData];
+              assignedTasksData.forEach((assignedTask) => {
+                if (!combined.some((task) => task.id === assignedTask.id)) {
+                  combined.push(assignedTask);
+                }
+              });
+              setAllTasks(combined);
+              setIsLoading(false);
+              setTimeout(() => setIsRealtimeSyncing(false), 1000);
+            },
+            (error) => {
+              console.error("Error in created tasks listener:", error);
+              setIsLoading(false);
+            }
+          );
+
+          const unsubscribeAssigned = onSnapshot(
+            assignedTasksQuery,
+            async (snapshot) => {
+              console.log("Real-time update: Assigned tasks changed");
+              setIsRealtimeSyncing(true);
+              assignedTasksData = await Promise.all(
+                snapshot.docs.map(async (doc) => {
+                  const taskData = { id: doc.id, ...doc.data() } as Task;
+                  
+                  // Populate assignee/reviewer info
+                  if (taskData.assigneeId && !taskData.assignee) {
+                    try {
+                      const assigneeProfile = await getUserProfileById(taskData.assigneeId);
+                      if (assigneeProfile) {
+                        taskData.assignee = {
+                          id: assigneeProfile.id,
+                          username: assigneeProfile.username,
+                          profilePicture: assigneeProfile.profilePicture,
+                        };
+                      }
+                    } catch (e) {
+                      console.warn("Could not fetch assignee profile", e);
+                    }
+                  }
+
+                  if (taskData.reviewerId && !taskData.reviewer) {
+                    try {
+                      const reviewerProfile = await getUserProfileById(taskData.reviewerId);
+                      if (reviewerProfile) {
+                        taskData.reviewer = {
+                          id: reviewerProfile.id,
+                          username: reviewerProfile.username,
+                          profilePicture: reviewerProfile.profilePicture,
+                        };
+                      }
+                    } catch (e) {
+                      console.warn("Could not fetch reviewer profile", e);
+                    }
+                  }
+
+                  return taskData;
+                })
+              );
+
+              setAssignedTasks(assignedTasksData);
+              
+              // Combine and update allTasks
+              const combined = [...createdTasksData];
+              assignedTasksData.forEach((assignedTask) => {
+                if (!combined.some((task) => task.id === assignedTask.id)) {
+                  combined.push(assignedTask);
+                }
+              });
+              setAllTasks(combined);
+              setIsLoading(false);
+              setTimeout(() => setIsRealtimeSyncing(false), 1000);
+            },
+            (error) => {
+              console.error("Error in assigned tasks listener:", error);
+              setIsLoading(false);
+            }
+          );
+
+          // Return combined unsubscribe function
+          unsubscribeTasks = () => {
+            unsubscribeCreated();
+            unsubscribeAssigned();
+          };
+        }
+      } catch (error) {
+        console.error("Error setting up real-time listeners:", error);
+        toast({
+          title: "Error",
+          description: "Failed to initialize real-time updates",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+      }
+    })();
+
+    // Return cleanup function
+    return () => {
+      if (unsubscribeTasks) {
+        unsubscribeTasks();
+      }
+    };
   };
 
   const handleCreateTask = async () => {
@@ -2094,6 +2410,12 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                   className="capitalize"
                 >
                   {userProjectRole}
+                </Badge>
+              )}
+              {isRealtimeSyncing && (
+                <Badge variant="outline" className="flex items-center gap-1 animate-pulse">
+                  <div className="h-2 w-2 rounded-full bg-green-500" />
+                  <span className="text-xs">Syncing...</span>
                 </Badge>
               )}
             </div>

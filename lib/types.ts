@@ -7,6 +7,7 @@ export interface UserProfile {
   profilePicture: string
   createdAt: string
   updatedAt: string
+  specialties?: string[]
 }
 
 export interface Task {
@@ -21,6 +22,7 @@ export interface Task {
   assigneeId?: string
   reviewerId?: string
   projectId?: string
+  category?: string
   assignee?: {
     id: string
     username: string
@@ -37,6 +39,14 @@ export interface Task {
     status: "pending" | "approved" | "rejected"
     feedback?: string
   }
+  submissions?: Array<{
+    id: string
+    userId: string
+    content: string
+    submittedAt: string
+    status: "pending" | "approved" | "rejected"
+    feedback?: string
+  }>
   paid?: boolean
   isOpenBounty?: boolean
   proposals?: TaskProposal[]
@@ -83,6 +93,7 @@ export interface Project {
   category?: string
   tags?: string[]
   coverImage?: string
+  logoUrl?: string
 }
 
 export interface ProjectMember {

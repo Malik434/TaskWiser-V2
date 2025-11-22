@@ -4,19 +4,21 @@ import { useState, useEffect } from "react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, Info, ChevronsLeft, ChevronsRight } from "lucide-react"
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react"
 import { useFirebase } from "./firebase-provider"
+import type { UserProfile, Task } from "@/lib/types"
+import { Badge } from "@/components/ui/badge"
 
 interface Contributor {
   id: string
   name: string
   avatar: string
-  reputation: number
-  description: string
+  tasksCompleted: number
+  specialties: string[]
 }
 
 export function Contributors() {
-  const { isInitialized } = useFirebase()
+  const { isInitialized, getUserProfiles, getAllTasks } = useFirebase()
   const [contributors, setContributors] = useState<Contributor[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [currentPage, setCurrentPage] = useState(1)
@@ -24,81 +26,48 @@ export function Contributors() {
 
   useEffect(() => {
     if (isInitialized) {
-      // In a real app, this would be fetched from Firebase
-      setSampleContributors()
+      loadContributors()
     }
   }, [isInitialized])
 
-  const setSampleContributors = () => {
+  const loadContributors = async () => {
     setIsLoading(true)
-    // Sample data
-    const sampleContributors: Contributor[] = [
-      {
-        id: "1",
-        name: "Sero | Hunters Workshop",
-        avatar: "/images/contributor-1.png",
-        reputation: 11340,
-        description: "Software Engineer | Web3 | Podcaster - Fluent in English, Arabic and French",
-      },
-      {
-        id: "2",
-        name: "ifun",
-        avatar: "/images/contributor-2.png",
-        reputation: 10092,
-        description: "DAO Operations Contributor. Graphics, Content and Template Creator. Data Entry",
-      },
-      {
-        id: "3",
-        name: "Zaff",
-        avatar: "/images/contributor-3.png",
-        reputation: 8150,
-        description: "Community Operations & Management | DAO Tooling | Content & Communications",
-      },
-      {
-        id: "4",
-        name: "sagitario",
-        avatar: "/images/contributor-4.png",
-        reputation: 4750,
-        description: "Polyglot fluent in English, German and Portuguese. I help DAOs and crypto projects",
-      },
-      {
-        id: "5",
-        name: "hamzat_iii",
-        avatar: "/images/contributor-5.png",
-        reputation: 4209,
-        description: "Technical and Content Writing → Content Creation → Analysis → Social Media",
-      },
-      {
-        id: "6",
-        name: "scagria",
-        avatar: "/images/contributor-6.png",
-        reputation: 3800,
-        description: "Crypto Enthusiast",
-      },
-      {
-        id: "7",
-        name: "v3dant.eth",
-        avatar: "/images/contributor-7.png",
-        reputation: 1750,
-        description: "Indian web3 enthusiast specializing in operations, translation and IRL meetups",
-      },
-      {
-        id: "8",
-        name: "tnrdd",
-        avatar: "/images/contributor-8.png",
-        reputation: 1400,
-        description: "Full Stack Developer",
-      },
-      {
-        id: "9",
-        name: "Latsan",
-        avatar: "/images/contributor-9.png",
-        reputation: 1300,
-        description: "Onchain Analyst",
-      },
-    ]
-    setContributors(sampleContributors)
-    setIsLoading(false)
+    try {
+      const [profiles, tasks] = await Promise.all<[
+        UserProfile[],
+        Task[]
+      ]>([getUserProfiles(), getAllTasks()])
+
+      const normalizedTasks = (tasks || [])
+      const mapped: Contributor[] = (profiles || []).map((p) => {
+        const completedForUser = normalizedTasks.filter((t) => {
+          const assigneeMatchesProfile = t.assigneeId === p.id
+          const assigneeMatchesAddress = t.assigneeId === p.address
+          const isCompletedStatus = t.status === "done" || t.status === "approved"
+          return (assigneeMatchesProfile || assigneeMatchesAddress) && isCompletedStatus
+        }).length
+        return {
+          id: p.id,
+          name: p.username,
+          avatar: p.profilePicture || "/placeholder.svg",
+          tasksCompleted: completedForUser,
+          specialties: p.specialties || [],
+        }
+      })
+
+      // Sort by tasks completed desc, then name
+      const sorted = mapped.sort((a, b) => {
+        if (b.tasksCompleted !== a.tasksCompleted) return b.tasksCompleted - a.tasksCompleted
+        return a.name.localeCompare(b.name)
+      })
+
+      setContributors(sorted)
+    } catch (e) {
+      console.error("Failed to load contributors:", e)
+      setContributors([])
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const totalPages = Math.ceil(contributors.length / itemsPerPage)
@@ -127,13 +96,18 @@ export function Contributors() {
                     </Avatar>
                     <div>
                       <h3 className="font-medium">{contributor.name}</h3>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <span>Reputation: {contributor.reputation}</span>
-                        <Info className="h-3 w-3" />
-                      </div>
+                      <div className="text-sm text-muted-foreground">{contributor.tasksCompleted} tasks completed</div>
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground">{contributor.description}</p>
+                  {contributor.specialties.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {contributor.specialties.map((s) => (
+                        <Badge key={s} variant="secondary" className="text-xs">
+                          {s}
+                        </Badge>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
@@ -147,33 +121,15 @@ export function Contributors() {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                 disabled={currentPage === 1}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-
-              {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                // Show current page and up to 2 pages before and after
-                const pageNumToShow = Math.min(Math.max(currentPage - 2 + i, 1), totalPages)
-                return (
-                  pageNumToShow <= totalPages && (
-                    <Button
-                      key={pageNumToShow}
-                      variant={currentPage === pageNumToShow ? "default" : "outline"}
-                      size="icon"
-                      onClick={() => setCurrentPage(pageNumToShow)}
-                    >
-                      {pageNumToShow}
-                    </Button>
-                  )
-                )
-              })}
-
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => setCurrentPage((prev) => Math.min(prev + 1, totalPages))}
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                 disabled={currentPage === totalPages}
               >
                 <ChevronRight className="h-4 w-4" />

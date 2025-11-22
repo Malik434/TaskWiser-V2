@@ -4,8 +4,12 @@ import { useState, useEffect } from "react"
 import { Search, Users } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardFooter } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { useToast } from "@/hooks/use-toast"
 import { useFirebase } from "./firebase-provider"
+import { useWeb3 } from "./web3-provider"
+import type { Project } from "@/lib/types"
 
 interface DAO {
   id: string
@@ -13,63 +17,78 @@ interface DAO {
   description: string
   logo: string
   memberCount: number
+  isMember?: boolean
 }
 
 export function TopDAOs() {
-  const { isInitialized } = useFirebase()
+  const { isInitialized, getProjects, applyToJoinProject, getUserProfile } = useFirebase()
+  const { toast } = useToast()
+  const { account, isConnected } = useWeb3()
   const [daos, setDaos] = useState<DAO[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [isLoading, setIsLoading] = useState(true)
+  const [submittingId, setSubmittingId] = useState<string | null>(null)
 
   useEffect(() => {
     if (isInitialized) {
-      // In a real app, this would be fetched from Firebase
-      setSampleDAOs()
+      loadProjects()
     }
   }, [isInitialized])
 
-  const setSampleDAOs = () => {
+  const loadProjects = async () => {
     setIsLoading(true)
-    // Sample data
-    const sampleDaos: DAO[] = [
-      {
-        id: "1",
-        name: "peaq network",
-        description: "Powering the Economy of Things",
-        logo: "/images/dao-1.png",
-        memberCount: 5881,
-      },
-      {
-        id: "2",
-        name: "Ten (formerly Obscuro)",
-        description: "Encrypting Ethereum",
-        logo: "/images/dao-2.png",
-        memberCount: 5543,
-      },
-      {
-        id: "3",
-        name: "Olive Finance",
-        description: "LYF Made Easy",
-        logo: "/images/dao-3.png",
-        memberCount: 3056,
-      },
-      {
-        id: "4",
-        name: "ZetaChain",
-        description: "Simple, Fast, and Secure Omnichain Blockchain.",
-        logo: "/images/dao-4.png",
-        memberCount: 2954,
-      },
-      {
-        id: "5",
-        name: "Nation3 DAO",
-        description: "We are building a zero-tax, Web3-powered, solarpunk society.",
-        logo: "/images/dao-5.png",
-        memberCount: 1918,
-      },
-    ]
-    setDaos(sampleDaos)
-    setIsLoading(false)
+    try {
+      const projects: Project[] = await getProjects()
+      let currentUserId: string | null = null
+      if (isConnected && account) {
+        try {
+          const profile = await getUserProfile(account)
+          currentUserId = profile?.id || null
+        } catch (e) {
+          console.warn("Failed to get user profile for membership check", e)
+        }
+      }
+      const mapped: DAO[] = (projects || []).map((p) => {
+        const members = Array.isArray(p.members) ? p.members : []
+        const isMember = currentUserId ? members.some((m: any) => m.userId === currentUserId && m.isActive) : false
+        return {
+          id: p.id,
+          name: p.title,
+          description: p.description || "",
+          logo: (p as any).logoUrl || (p as any).coverImage || "/placeholder.svg",
+          memberCount: members.filter((m: any) => m.isActive).length,
+          isMember,
+        }
+      })
+      const sorted = mapped.sort((a, b) => b.memberCount - a.memberCount)
+      setDaos(sorted)
+    } catch (e) {
+      console.error("Failed to load projects for TopDAOs:", e)
+      setDaos([])
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleApply = async (projectId: string) => {
+    if (!isConnected || !account) {
+      toast({ title: "Wallet Required", description: "Connect your wallet first.", variant: "destructive" })
+      return
+    }
+    const dao = daos.find(d => d.id === projectId)
+    if (dao?.isMember) {
+      toast({ title: "Already a member", description: "You are already part of this project." })
+      return
+    }
+    try {
+      setSubmittingId(projectId)
+      await applyToJoinProject(projectId, account, account)
+      toast({ title: "Request Sent", description: "Your application is pending review." })
+    } catch (e: any) {
+      toast({ title: "Error", description: e?.message || "Failed to apply", variant: "destructive" })
+    } finally {
+      setSubmittingId(null)
+    }
   }
 
   const filteredDaos = daos.filter(
@@ -88,7 +107,7 @@ export function TopDAOs() {
           Top DAOs ({daos.length})
         </h1>
         <p className="text-muted-foreground">
-          Find hundreds of web3 DAOs, see their roadmap and explore open bounties and work
+          Explore projects and their open bounties. Sorted by active members.
         </p>
       </div>
 
@@ -108,7 +127,7 @@ export function TopDAOs() {
             <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
           </div>
         ) : filteredDaos.length === 0 ? (
-          <div className="text-center py-8 text-muted-foreground">No DAOs found matching your search criteria</div>
+          <div className="text-center py-8 text-muted-foreground">No projects found matching your search</div>
         ) : (
           filteredDaos.map((dao) => (
             <Card
@@ -129,6 +148,16 @@ export function TopDAOs() {
                   <span>{dao.memberCount.toLocaleString()} members</span>
                 </div>
               </CardContent>
+              <CardFooter className="flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={() => handleApply(dao.id)}
+                  disabled={submittingId === dao.id || dao.isMember}
+                  className="dark:bg-primary dark:hover:bg-primary/90"
+                >
+                  {dao.isMember ? "Member" : submittingId === dao.id ? "Applying..." : "Apply"}
+                </Button>
+              </CardFooter>
             </Card>
           ))
         )}

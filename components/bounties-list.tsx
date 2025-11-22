@@ -9,24 +9,48 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Search, Loader2 } from "lucide-react"
 import type { Bounty } from "@/lib/types"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
+import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
+import { useToast } from "@/hooks/use-toast"
+import { useWeb3 } from "./web3-provider"
 
 export function BountiesList() {
-  const { getBounties, isInitialized } = useFirebase()
+  const { getBounties, isInitialized, updateTask, addTaskSubmission, getUserProfile } = useFirebase()
+  const { account } = useWeb3()
+  const { toast } = useToast()
   const [bounties, setBounties] = useState<Bounty[]>([])
   const [filteredBounties, setFilteredBounties] = useState<Bounty[]>([])
   const [searchQuery, setSearchQuery] = useState("")
   const [categoryFilter, setCategoryFilter] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
+  const [selectedBounty, setSelectedBounty] = useState<any | null>(null)
+  const [isDialogOpen, setIsDialogOpen] = useState(false)
+  const [proposalContent, setProposalContent] = useState("")
+  const [isSubmittingProposal, setIsSubmittingProposal] = useState(false)
+  const [isSubmittingWork, setIsSubmittingWork] = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
 
-  // Update the useEffect to depend on isInitialized
+  const generateId = () =>
+    typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function"
+      ? globalThis.crypto.randomUUID()
+      : Math.random().toString(36).slice(2)
+  const formatAddress = (address?: string | null) => {
+    if (!address) return "Unknown"
+    return `${address.slice(0, 6)}...${address.slice(-4)}`
+  }
+
   useEffect(() => {
     if (isInitialized) {
-      console.log("Firebase is initialized, fetching bounties...")
       fetchBounties()
-    } else {
-      console.log("Firebase not initialized yet, waiting...")
+      // Resolve current user ID from wallet address
+      if (account) {
+        getUserProfile(account).then((profile) => {
+          setCurrentUserId(profile?.id || null)
+        }).catch(() => setCurrentUserId(null))
+      }
     }
-  }, [isInitialized])
+  }, [isInitialized, account])
 
   useEffect(() => {
     filterBounties()
@@ -35,89 +59,23 @@ export function BountiesList() {
   const fetchBounties = async () => {
     setIsLoading(true)
     try {
-      // Check if Firebase is initialized before fetching
       if (!isInitialized) {
-        console.log("Firebase not yet initialized, using sample data")
-        setSampleBountiesData()
         return
       }
 
-      console.log("Attempting to fetch bounties from Firebase...")
       const data = await getBounties()
-      console.log(`Fetched ${data?.length || 0} bounties from Firebase`)
-
-      if (data && data.length > 0) {
-        setBounties(data)
-      } else {
-        console.log("No bounties found in Firebase, using sample data")
-        // If no data returned, use sample data
-        setSampleBountiesData()
-      }
+      setBounties(data || [])
     } catch (error) {
       console.error("Error fetching bounties:", error)
-      // Use sample data on error
-      setSampleBountiesData()
+      setBounties([])
     } finally {
       setIsLoading(false)
     }
   }
 
-  // Add a new function to set sample bounties data
-  const setSampleBountiesData = () => {
-    const sampleBounties: Bounty[] = [
-      {
-        id: "1",
-        title: "[X Thread or Long Post] How to Get Discord Roles",
-        description: "Create a comprehensive guide on Discord roles",
-        daoName: "NodeShift",
-        daoImage: "/images/dao-1.png",
-        reward: "USDC",
-        rewardAmount: 15,
-        category: "Writing",
-        daysAgo: 13,
-      },
-      {
-        id: "2",
-        title: "[Video] Create Community Onboarding Video",
-        description: "Create an onboarding video for new community members",
-        daoName: "NodeShift",
-        daoImage: "/images/dao-2.png",
-        reward: "USDC",
-        rewardAmount: 25,
-        category: "Video",
-        daysAgo: 15,
-      },
-      {
-        id: "3",
-        title: "[Translation] NodeShift Whitepaper",
-        description: "Translate the NodeShift whitepaper to another language",
-        daoName: "NodeShift",
-        daoImage: "/images/dao-3.png",
-        reward: "USDC",
-        rewardAmount: 30,
-        category: "Translation",
-        daysAgo: 15,
-      },
-      {
-        id: "4",
-        title: "Join community",
-        description: "Join our community and participate in discussions",
-        daoName: "XTOM",
-        daoImage: "/images/dao-4.png",
-        reward: "BNB",
-        rewardAmount: 1,
-        category: "Community",
-        daysAgo: 21,
-      },
-    ]
-
-    setBounties(sampleBounties)
-  }
-
   const filterBounties = () => {
     let filtered = [...bounties]
 
-    // Apply search filter
     if (searchQuery) {
       filtered = filtered.filter(
         (bounty) =>
@@ -127,12 +85,113 @@ export function BountiesList() {
       )
     }
 
-    // Apply category filter
     if (categoryFilter !== "all") {
-      filtered = filtered.filter((bounty) => bounty.category === categoryFilter)
+      filtered = filtered.filter((bounty) => (bounty as any).category === categoryFilter)
     }
 
     setFilteredBounties(filtered)
+  }
+
+  const openBountyDialog = (bounty: any) => {
+    setSelectedBounty(bounty)
+    setProposalContent("")
+    setIsDialogOpen(true)
+  }
+
+  const closeBountyDialog = () => {
+    setSelectedBounty(null)
+    setProposalContent("")
+    setIsDialogOpen(false)
+  }
+
+  const hasSubmittedProposal = (bounty: any) => {
+    const userIdentifier = currentUserId || account || ""
+    return (bounty?.proposals || []).some((p: any) => p.userId === userIdentifier || p.userId === account)
+  }
+
+  const canSubmitProposal = (bounty: any) => {
+    if (!bounty || !account) return false
+    const userIdentifier = currentUserId || account || ""
+    return (
+      // must be open bounty
+      true &&
+      // wallet connected
+      !!account &&
+      // not the task owner
+      bounty.userId !== account &&
+      // not the reviewer
+      (!bounty.reviewerId || bounty.reviewerId !== currentUserId) &&
+      // not already assigned
+      bounty.assigneeId !== userIdentifier &&
+      // not already proposed
+      !hasSubmittedProposal(bounty)
+    )
+  }
+
+  const handleSubmitProposal = async () => {
+    if (!selectedBounty || !proposalContent.trim()) {
+      toast({ title: "Proposal required", description: "Please add details about your proposal.", variant: "destructive" })
+      return
+    }
+    if (!account) {
+      toast({ title: "Wallet not connected", description: "Connect your wallet to submit a proposal.", variant: "destructive" })
+      return
+    }
+    setIsSubmittingProposal(true)
+    try {
+      // Load user profile for display data
+      const profile = (currentUserId && account) ? await getUserProfile(account) : null
+      const applicantId = profile?.id || currentUserId || account
+      const proposal = {
+        id: generateId(),
+        userId: applicantId,
+        username: profile?.username || formatAddress(account),
+        profilePicture: profile?.profilePicture,
+        message: proposalContent.trim(),
+        status: "pending" as const,
+        submittedAt: new Date().toISOString(),
+      }
+      const updatedProposals = [ ...(selectedBounty.proposals || []), proposal ]
+      await updateTask(selectedBounty.id, { proposals: updatedProposals, isOpenBounty: true })
+      toast({ title: "Proposal submitted", description: "Your proposal has been sent to the task owner." })
+      // Update local state
+      setSelectedBounty({ ...selectedBounty, proposals: updatedProposals })
+      setBounties((prev) => prev.map((b) => b.id === selectedBounty.id ? ({ ...(b as any), proposals: updatedProposals }) as any : b))
+      setFilteredBounties((prev) => prev.map((b) => b.id === selectedBounty.id ? ({ ...(b as any), proposals: updatedProposals }) as any : b))
+      setProposalContent("")
+      setIsDialogOpen(false)
+    } catch (error) {
+      console.error("Error submitting proposal:", error)
+      toast({ title: "Error", description: "Failed to submit proposal.", variant: "destructive" })
+    } finally {
+      setIsSubmittingProposal(false)
+    }
+  }
+
+  const canSubmitWork = (bounty: any) => {
+    if (!bounty) return false
+    const userIdentifier = currentUserId || account
+    if (!userIdentifier) return false
+    return bounty.assigneeId === userIdentifier && !bounty.submission
+  }
+
+  const handleSubmitWork = async () => {
+    if (!selectedBounty || !currentUserId || !proposalContent.trim()) {
+      toast({ title: "Submission required", description: "Please include a link or description of your work.", variant: "destructive" })
+      return
+    }
+    setIsSubmittingWork(true)
+    try {
+      await addTaskSubmission(selectedBounty.id, { userId: currentUserId, content: proposalContent.trim() })
+      toast({ title: "Work submitted", description: "Your work has been submitted for review." })
+      setProposalContent("")
+      setIsDialogOpen(false)
+    } catch (error) {
+      console.error("Error submitting work:", error)
+      toast({ title: "Error", description: "Failed to submit work.", variant: "destructive" })
+    } finally {
+      setIsSubmittingWork(false)
+    }
   }
 
   return (
@@ -190,23 +249,24 @@ export function BountiesList() {
               </div>
             ) : (
               filteredBounties.map((bounty) => (
-                <Card key={bounty.id} className="overflow-hidden">
+                <Card key={bounty.id} className="overflow-hidden cursor-pointer" onClick={() => openBountyDialog(bounty)}>
                   <CardContent className="flex items-center gap-4 p-4">
                     <Avatar className="h-12 w-12 rounded-full">
-                      <AvatarImage src={bounty.daoImage || "/placeholder.svg"} alt={bounty.daoName} />
-                      <AvatarFallback>{bounty.daoName.substring(0, 2)}</AvatarFallback>
+                      <AvatarImage src={(bounty as any).daoImage || "/placeholder.svg"} alt={(bounty as any).daoName} />
+                      <AvatarFallback>{(bounty as any).daoName.substring(0, 2)}</AvatarFallback>
                     </Avatar>
 
                     <div className="flex-1">
                       <h3 className="font-medium">{bounty.title}</h3>
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <span>
-                          {bounty.daysAgo} days ago by {bounty.daoName}
+                          {(bounty as any).daysAgo} days ago by {(bounty as any).daoName}
                         </span>
                       </div>
                       <div className="mt-1">
                         <Badge variant="outline" className="rounded-sm bg-secondary/50 text-xs font-normal">
-                          {bounty.category}
+                          {(bounty as any).category
+}
                         </Badge>
                       </div>
                     </div>
@@ -215,16 +275,8 @@ export function BountiesList() {
                       <div className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1">
                         <div className="h-4 w-4 rounded-full bg-blue-500"></div>
                         <span className="text-sm font-medium">
-                          {bounty.rewardAmount} {bounty.reward}
+                          {(bounty as any).rewardAmount} {(bounty as any).reward}
                         </span>
-                      </div>
-                      <div className="mt-1 text-xs text-muted-foreground">
-                        $
-                        {bounty.reward === "USDC"
-                          ? bounty.rewardAmount
-                          : bounty.reward === "BNB"
-                            ? bounty.rewardAmount * 500
-                            : 0}
                       </div>
                     </div>
                   </CardContent>
@@ -234,6 +286,72 @@ export function BountiesList() {
           </div>
         </div>
       )}
+
+      {/* Bounty Preview Dialog */}
+      <Dialog open={isDialogOpen} onOpenChange={(o) => (o ? setIsDialogOpen(true) : closeBountyDialog())}>
+        <DialogContent className="sm:max-w-xl">
+          {selectedBounty && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{selectedBounty.title}</DialogTitle>
+                <DialogDescription>
+                  {selectedBounty.description}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="flex items-center gap-2 mb-3">
+                {(selectedBounty.daoName) && (
+                  <Badge variant="outline">{selectedBounty.daoName}</Badge>
+                )}
+                {selectedBounty.reward && selectedBounty.rewardAmount && (
+                  <Badge variant="outline">{selectedBounty.rewardAmount} {selectedBounty.reward}</Badge>
+                )}
+                {selectedBounty.category && (
+                  <Badge variant="outline">{selectedBounty.category}</Badge>
+                )}
+              </div>
+
+              <div className="grid gap-3">
+                <div>
+                  <h3 className="text-sm font-medium mb-1">Submit Proposal</h3>
+                  <Textarea
+                    placeholder="Describe how you’ll approach this bounty"
+                    value={proposalContent}
+                    onChange={(e) => setProposalContent(e.target.value)}
+                    className="min-h-[100px]"
+                  />
+                  <div className="mt-2 flex gap-2">
+                    <Button onClick={handleSubmitProposal} disabled={!canSubmitProposal(selectedBounty) || isSubmittingProposal}>
+                      {isSubmittingProposal ? "Submitting..." : "Submit Proposal"}
+                    </Button>
+                  </div>
+                </div>
+
+                {canSubmitWork(selectedBounty) && (
+                  <div className="pt-2 border-t">
+                    <h3 className="text-sm font-medium mb-1">Submit Work</h3>
+                    <Textarea
+                      placeholder="Link or description of your work"
+                      value={proposalContent}
+                      onChange={(e) => setProposalContent(e.target.value)}
+                      className="min-h-[80px]"
+                    />
+                    <div className="mt-2 flex gap-2">
+                      <Button onClick={handleSubmitWork} disabled={isSubmittingWork} className="gradient-button">
+                        {isSubmittingWork ? "Submitting..." : "Submit Work"}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={closeBountyDialog}>Close</Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

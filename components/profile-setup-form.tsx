@@ -12,11 +12,21 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useToast } from "@/hooks/use-toast"
 import { Loader2, Upload, User } from "lucide-react"
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface ProfileSetupFormProps {
   isOpen: boolean
   onClose: () => void
 }
+
+const SPECIALTY_OPTIONS = [
+  "Writing",
+  "Development",
+  "Design",
+  "Translation",
+  "Community",
+  "Video",
+]
 
 export function ProfileSetupForm({ isOpen, onClose }: ProfileSetupFormProps) {
   const { account } = useWeb3()
@@ -27,6 +37,7 @@ export function ProfileSetupForm({ isOpen, onClose }: ProfileSetupFormProps) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [errors, setErrors] = useState<{ username?: string; profilePicture?: string }>({})
+  const [specialties, setSpecialties] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,13 +78,19 @@ export function ProfileSetupForm({ isOpen, onClose }: ProfileSetupFormProps) {
     return Object.keys(newErrors).length === 0
   }
 
+  const toggleSpecialty = (value: string) => {
+    setSpecialties((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+    )
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
     if (!account) {
       toast({
-        title: "Error",
-        description: "Wallet not connected",
+        title: "Wallet not connected",
+        description: "Please connect your wallet to continue",
         variant: "destructive",
       })
       return
@@ -88,37 +105,11 @@ export function ProfileSetupForm({ isOpen, onClose }: ProfileSetupFormProps) {
     try {
       let profilePictureUrl = ""
 
-      // Upload profile picture if one was selected
       if (profilePicture) {
         try {
-          toast({
-            title: "Processing",
-            description: "Processing your profile picture...",
-          })
-
-          // We don't need to compress the image here as it's handled in the uploadToIPFS function
-          toast({
-            title: "Uploading",
-            description: "Uploading your profile picture to IPFS...",
-          })
-
           profilePictureUrl = await uploadProfilePicture(profilePicture, account)
-
-          if (!profilePictureUrl) {
-            throw new Error("Failed to get IPFS URL for uploaded image")
-          }
-
-          toast({
-            title: "Upload Complete",
-            description: "Profile picture uploaded to IPFS successfully",
-          })
         } catch (error) {
-          console.error("Error processing/uploading profile picture to IPFS:", error)
-          toast({
-            title: "Upload Failed",
-            description: "Failed to upload profile picture to IPFS. Using default image instead.",
-            variant: "destructive",
-          })
+          console.error("Error uploading profile picture:", error)
           // Use a default image if upload fails
           profilePictureUrl = `/placeholder.svg?height=200&width=200`
         }
@@ -132,6 +123,7 @@ export function ProfileSetupForm({ isOpen, onClose }: ProfileSetupFormProps) {
         address: account,
         username,
         profilePicture: profilePictureUrl,
+        specialties,
       })
 
       toast({
@@ -201,6 +193,21 @@ export function ProfileSetupForm({ isOpen, onClose }: ProfileSetupFormProps) {
               className={errors.username ? "border-destructive" : ""}
             />
             {errors.username && <p className="text-sm text-destructive">{errors.username}</p>}
+          </div>
+
+          <div className="space-y-3">
+            <Label>Specialties</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {SPECIALTY_OPTIONS.map((opt) => (
+                <label key={opt} className="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    checked={specialties.includes(opt)}
+                    onCheckedChange={() => toggleSpecialty(opt)}
+                  />
+                  <span>{opt}</span>
+                </label>
+              ))}
+            </div>
           </div>
 
           <div className="flex justify-end gap-2">

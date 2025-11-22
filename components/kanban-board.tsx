@@ -106,6 +106,8 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     getUserProfile,
     getUserProfileById,
     getProjectById,
+    getJoinRequestsForProject,
+    respondToProjectJoinRequest,
   } = useFirebase();
   const { account } = useWeb3();
   const { toast } = useToast();
@@ -196,6 +198,10 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   const [isRealtimeSyncing, setIsRealtimeSyncing] = useState(false);
   const [isDeletingTask, setIsDeletingTask] = useState(false);
   const [isFetchingTasks, setIsFetchingTasks] = useState(false);
+  const [isManageContribOpen, setIsManageContribOpen] = useState(false);
+  const [pendingJoinRequests, setPendingJoinRequests] = useState<any[]>([]);
+  const [isLoadingJoinReqs, setIsLoadingJoinReqs] = useState(false);
+  const [respondingRequestId, setRespondingRequestId] = useState<string | null>(null);
 
   // Drag state for batch operations
   const [isDraggingBatch, setIsDraggingBatch] = useState(false);
@@ -242,6 +248,32 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
       }))
     );
   };
+
+  const loadJoinRequests = async () => {
+    if (!currentProject) return;
+    setIsLoadingJoinReqs(true);
+    try {
+      const reqs = await getJoinRequestsForProject(currentProject.id);
+      const enriched = await Promise.all(
+        reqs.map(async (r: any) => ({
+          ...r,
+          applicantProfile: await getUserProfileById(r.applicantUserId),
+        }))
+      );
+      setPendingJoinRequests(enriched);
+    } catch (error) {
+      console.error("Error loading join requests:", error);
+      toast({ title: "Error", description: "Failed to load join requests", variant: "destructive" });
+    } finally {
+      setIsLoadingJoinReqs(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isManageContribOpen && currentProject) {
+      loadJoinRequests();
+    }
+  }, [isManageContribOpen, currentProject]);
 
   const fetchUsers = async () => {
     setIsLoadingUsers(true);
@@ -689,6 +721,14 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   };
 
   const updateColumnsWithTasks = (tasks: Task[]) => {
+    // Remove duplicate tasks by id to prevent duplicate keys during rendering
+    const seen = new Set<string>();
+    const uniqueTasks = tasks.filter((t) => {
+      if (seen.has(t.id)) return false;
+      seen.add(t.id);
+      return true;
+    });
+
     // Reset columns
     const updatedColumns = columns.map((column) => ({
       ...column,
@@ -697,7 +737,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     }));
 
     // Distribute tasks to columns
-    tasks.forEach((task) => {
+    uniqueTasks.forEach((task) => {
       const columnIndex = updatedColumns.findIndex(
         (col) => col.id === task.status
       );
@@ -1061,7 +1101,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
       if (newTask.rewardAmount) {
         taskToCreate.rewardAmount = newTask.rewardAmount;
       }
-      if (newTask.assigneeId) {
+      if (newTask.isOpenBounty) {
+        taskToCreate.assigneeId = null;
+      } else if (newTask.assigneeId) {
         taskToCreate.assigneeId = newTask.assigneeId;
       }
       if (newTask.reviewerId) {
@@ -1189,16 +1231,18 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     try {
       // Convert "no_reward" to undefined for the reward field
       const timestamp = new Date().toISOString();
+      const isOpenBountyEffective =
+        typeof editedTask.isOpenBounty === "boolean"
+          ? editedTask.isOpenBounty
+          : selectedTask.isOpenBounty;
+
       const updatedTaskData = {
         ...editedTask,
         reward:
           editedTask.reward === "no_reward" ? undefined : editedTask.reward,
-        assigneeId: editedTask.assigneeId,
+        assigneeId: isOpenBountyEffective ? null : editedTask.assigneeId,
         reviewerId: editedTask.reviewerId,
-        isOpenBounty:
-          typeof editedTask.isOpenBounty === "boolean"
-            ? editedTask.isOpenBounty
-            : selectedTask.isOpenBounty,
+        isOpenBounty: isOpenBountyEffective,
         escrowEnabled:
           typeof editedTask.escrowEnabled === "boolean"
             ? editedTask.escrowEnabled
@@ -1211,7 +1255,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
 
       // If assignee changed, fetch the assignee details
       let assignee = selectedTask.assignee;
-      if (
+      if (isOpenBountyEffective) {
+        assignee = undefined;
+      } else if (
         editedTask.assigneeId &&
         editedTask.assigneeId !== selectedTask.assigneeId
       ) {
@@ -2418,6 +2464,15 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                   <span className="text-xs">Syncing...</span>
                 </Badge>
               )}
+              {userProjectRole === "admin" && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsManageContribOpen(true)}
+                >
+                  Manage Contributors
+                </Button>
+              )}
             </div>
           </div>
           {isContributor && (
@@ -2437,6 +2492,101 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
             </div>
           )}
         </div>
+      )}
+      {userProjectRole === "admin" && (
+        <Dialog open={isManageContribOpen} onOpenChange={setIsManageContribOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Manage Contributors</DialogTitle>
+              <DialogDescription>Review pending join requests.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3">
+              {isLoadingJoinReqs ? (
+                <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading join requests...
+                </div>
+              ) : pendingJoinRequests.length === 0 ? (
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  No pending join requests.
+                </p>
+              ) : (
+                pendingJoinRequests.map((req) => (
+                  <div key={req.id} className="flex items-center justify-between rounded-md border p-3">
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={req.applicantProfile?.avatarUrl || ""} />
+                        <AvatarFallback>
+                          {(req.applicantProfile?.username || formatAddress(req.applicantAddress)).slice(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div>
+                        <div className="font-medium">
+                          {req.applicantProfile?.username || formatAddress(req.applicantAddress)}
+                        </div>
+                        {req.message && (
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            {req.message}
+                          </div>
+                        )}
+                        <div className="text-xs text-gray-400">
+                          Applied {format(new Date(req.createdAt), "PP p")}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="default"
+                        disabled={respondingRequestId === req.id}
+                        onClick={async () => {
+                          setRespondingRequestId(req.id);
+                          try {
+                            await respondToProjectJoinRequest(req.id, "accepted");
+                            setPendingJoinRequests((prev) => prev.filter((r) => r.id !== req.id));
+                            toast({ title: "Contributor Added", description: "Join request accepted." });
+                          } catch (e) {
+                            console.error(e);
+                            toast({ title: "Error", description: "Failed to accept request.", variant: "destructive" });
+                          } finally {
+                            setRespondingRequestId(null);
+                          }
+                        }}
+                      >
+                        Accept
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={respondingRequestId === req.id}
+                        onClick={async () => {
+                          setRespondingRequestId(req.id);
+                          try {
+                            await respondToProjectJoinRequest(req.id, "rejected");
+                            setPendingJoinRequests((prev) => prev.filter((r) => r.id !== req.id));
+                            toast({ title: "Request Rejected", description: "Join request rejected." });
+                          } catch (e) {
+                            console.error(e);
+                            toast({ title: "Error", description: "Failed to reject request.", variant: "destructive" });
+                          } finally {
+                            setRespondingRequestId(null);
+                          }
+                        }}
+                      >
+                        Reject
+                      </Button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsManageContribOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       )}
       
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -3010,7 +3160,8 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                   )}
                 </div>
                 {!isEditMode && (
-                  <DialogDescription>
+                  <>
+                    <DialogDescription>Task details</DialogDescription>
                     <div className="flex gap-2 mt-2">
                       <Badge
                         variant="outline"
@@ -3070,7 +3221,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                         </Badge>
                       )}
                     </div>
-                  </DialogDescription>
+                  </>
                 )}
               </DialogHeader>
 
@@ -3521,8 +3672,8 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                       selectedTask.assigneeId !== userIdentifier &&
                       !hasSubmittedProposal;
                     const canSubmitWork =
-                      selectedTask.assigneeId === currentUserId &&
-                      selectedTask.status === "inprogress" &&
+                      selectedTask.assigneeId === userIdentifier &&
+                      (selectedTask.status === "inprogress" || selectedTask.status === "todo") &&
                       !selectedTask.submission;
                     const canApproveSubmission =
                       selectedTask.status === "review" &&

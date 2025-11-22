@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useWeb3 } from "@/components/web3-provider";
 import { useFirebase } from "@/components/firebase-provider";
 import type { Project, ProjectMember, UserProfile } from "@/lib/types";
-import { PlusCircle, Calendar, MoreHorizontal, Users, Shield, UserPlus, UserMinus, Eye, Edit, Archive } from "lucide-react";
+import { PlusCircle, Calendar, MoreHorizontal, Users, Shield, UserPlus, UserMinus, Eye, Edit, Archive, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -19,11 +19,12 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
+import { UserSearchSelect } from "@/components/user-search-select";
 
 export default function ProjectsPage() {
   const router = useRouter();
   const { isConnected, account } = useWeb3();
-  const { addProject, getProjects, updateProject, getUserProfiles, getUserProfile } = useFirebase();
+  const { addProject, getProjects, updateProject, getUserProfiles, getUserProfile, deleteProject, inviteUserToProject, getProjectInvitationsForUser, respondToProjectInvitation, uploadProjectLogo } = useFirebase();
   const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -34,12 +35,22 @@ export default function ProjectsPage() {
   const [availableUsers, setAvailableUsers] = useState<UserProfile[]>([]);
   const [newMemberAddress, setNewMemberAddress] = useState("");
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [pendingInvitations, setPendingInvitations] = useState<any[]>([]);
+  const [isLoadingInvites, setIsLoadingInvites] = useState(false);
+  const [currentUserProfile, setCurrentUserProfile] = useState<UserProfile | null>(null);
   const [newProject, setNewProject] = useState<Partial<Project>>({
     title: "",
     description: "",
     status: "active",
     createdBy: account || "",
   });
+  const [selectedInviteUserId, setSelectedInviteUserId] = useState<string | undefined>(undefined);
+  const [isInvitingUserId, setIsInvitingUserId] = useState<string | null>(null);
+  const [invitedUserIds, setInvitedUserIds] = useState<Set<string>>(new Set());
+  const [newProjectLogoFile, setNewProjectLogoFile] = useState<File | null>(null);
+  const [newProjectLogoPreview, setNewProjectLogoPreview] = useState<string | null>(null);
+  const [editProjectLogoFile, setEditProjectLogoFile] = useState<File | null>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState<boolean>(false);
 
   // This effect ensures we only check wallet connection status on the client side
   useEffect(() => {
@@ -50,8 +61,15 @@ export default function ProjectsPage() {
     if (account) {
       fetchProjects();
       loadAvailableUsers();
+      // Removed immediate loadInvitations here to avoid race
     }
   }, [account]);
+
+  useEffect(() => {
+    if (currentUserProfile) {
+      loadInvitations();
+    }
+  }, [currentUserProfile]);
 
   const loadAvailableUsers = async () => {
     try {
@@ -70,8 +88,9 @@ export default function ProjectsPage() {
       if (!account) return;
 
       // Get current user's profile
-      const currentUserProfile = await getUserProfile(account);
-      if (!currentUserProfile) {
+      const profile = await getUserProfile(account);
+      setCurrentUserProfile(profile);
+      if (!profile) {
         setProjects([]);
         return;
       }
@@ -81,7 +100,7 @@ export default function ProjectsPage() {
       
       // Filter to only show projects where the user is a member
       const userProjects = fetchedProjects.filter(project => 
-        project.members?.some((member: ProjectMember) => member.userId === currentUserProfile.id)
+        project.members?.some((member: ProjectMember) => member.userId === profile.id)
       );
       
       setProjects(userProjects);
@@ -106,10 +125,24 @@ export default function ProjectsPage() {
         return;
       }
 
+      let logoUrl: string | undefined = undefined;
+      if (newProjectLogoFile) {
+        try {
+          setIsUploadingLogo(true);
+          logoUrl = await uploadProjectLogo(newProjectLogoFile);
+        } catch (e) {
+          console.error("Logo upload failed:", e);
+          toast({ title: "Logo Upload Failed", description: "Continuing without logo.", variant: "destructive" });
+        } finally {
+          setIsUploadingLogo(false);
+        }
+      }
+
       const projectToAdd = {
         ...newProject,
         createdBy: account || "",
         createdAt: new Date().toISOString(),
+        logoUrl,
       } as Project;
 
       await addProject(projectToAdd);
@@ -119,6 +152,8 @@ export default function ProjectsPage() {
         status: "active",
         createdBy: account || "",
       });
+      setNewProjectLogoFile(null);
+      setNewProjectLogoPreview(null);
       setIsAddProjectDialogOpen(false);
       fetchProjects();
       toast({
@@ -182,16 +217,31 @@ export default function ProjectsPage() {
     if (!selectedProject) return;
 
     try {
+      let logoUrl: string | undefined = selectedProject.logoUrl;
+      if (editProjectLogoFile) {
+        try {
+          setIsUploadingLogo(true);
+          logoUrl = await uploadProjectLogo(editProjectLogoFile);
+        } catch (e) {
+          console.error("Logo upload failed:", e);
+          toast({ title: "Logo Upload Failed", description: "Continuing without updating logo.", variant: "destructive" });
+        } finally {
+          setIsUploadingLogo(false);
+        }
+      }
+
       await updateProject(selectedProject.id, {
         title: selectedProject.title,
         description: selectedProject.description,
+        logoUrl,
       });
 
       // Update local state
       setProjects(projects.map(p => 
-        p.id === selectedProject.id ? selectedProject : p
+        p.id === selectedProject.id ? { ...selectedProject, logoUrl } : p
       ));
 
+      setEditProjectLogoFile(null);
       setIsEditProjectDialogOpen(false);
       toast({
         title: "Success",
@@ -340,6 +390,81 @@ export default function ProjectsPage() {
     }
   };
 
+  // Delete project (admin only)
+  const handleDeleteProject = async (project: Project, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!project) return;
+    try {
+      const confirmed = window.confirm(`Delete project "${project.title}"? This cannot be undone.`);
+      if (!confirmed) return;
+      await deleteProject(project.id);
+      setProjects(prev => prev.filter(p => p.id !== project.id));
+      toast({ title: "Success", description: "Project deleted." });
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      toast({ title: "Error", description: "Failed to delete project.", variant: "destructive" });
+    }
+  };
+
+  // Invite a registered user profile to the selected project
+  const handleInviteUser = async (user: UserProfile) => {
+    if (!selectedProject || !account) return;
+    try {
+      setIsInvitingUserId(user.id);
+      const invitationId = await inviteUserToProject(selectedProject.id, user.id, account, selectedProject.title);
+      if (invitationId) {
+        setInvitedUserIds((prev) => new Set([...Array.from(prev), user.id]));
+        toast({ title: "Invitation sent", description: `${user.username || user.address} has been invited.` });
+      } else {
+        toast({ title: "Warning", description: "Invitation could not be created.", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Error inviting user:", error);
+      toast({ title: "Error", description: "Failed to send invitation.", variant: "destructive" });
+    } finally {
+      setIsInvitingUserId(null);
+    }
+  };
+
+  // Load pending invitations for the current user
+  const loadInvitations = async () => {
+    try {
+      if (!currentUserProfile) return;
+      setIsLoadingInvites(true);
+      const invites = await getProjectInvitationsForUser(currentUserProfile.id);
+      setPendingInvitations(invites);
+    } catch (error) {
+      console.error("Error loading invitations:", error);
+    } finally {
+      setIsLoadingInvites(false);
+    }
+  };
+
+  // Accept invitation -> adds user as contributor to project then refreshes lists
+  const handleAcceptInvitation = async (inv: any) => {
+    try {
+      await respondToProjectInvitation(inv.id, "accepted");
+      await fetchProjects();
+      await loadInvitations();
+      toast({ title: "Joined project", description: `You joined ${inv.projectTitle || "the project"}.` });
+    } catch (error) {
+      console.error("Error accepting invitation:", error);
+      toast({ title: "Error", description: "Failed to accept invitation.", variant: "destructive" });
+    }
+  };
+
+  // Reject invitation
+  const handleRejectInvitation = async (inv: any) => {
+    try {
+      await respondToProjectInvitation(inv.id, "rejected");
+      await loadInvitations();
+      toast({ title: "Invitation rejected" });
+    } catch (error) {
+      console.error("Error rejecting invitation:", error);
+      toast({ title: "Error", description: "Failed to reject invitation.", variant: "destructive" });
+    }
+  };
+
   const getUserRole = (project: Project | null): string => {
     if (!account || !project) return "none";
     
@@ -397,6 +522,39 @@ export default function ProjectsPage() {
         </div>
       </header>
       <main className="animate-in fade-in duration-500 p-6">
+        {pendingInvitations.length > 0 && (
+          <Card className="mb-6 dark-card">
+            <CardHeader>
+              <CardTitle>Pending Invitations</CardTitle>
+              <CardDescription>Accept an invitation to join a project.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoadingInvites ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Loading invitations...
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {pendingInvitations.map((inv) => (
+                    <div key={inv.id} className="flex items-center justify-between p-3 border rounded-lg dark:border-gray-700">
+                      <div className="flex items-center gap-3">
+                        <Users className="h-4 w-4" />
+                        <div className="flex flex-col">
+                          <span className="font-medium">{inv.projectTitle || "Project"}</span>
+                          <span className="text-xs text-muted-foreground">Invited by {inv.inviterAddress?.substring(0, 10)}...</span>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" className="gradient-button" onClick={() => handleAcceptInvitation(inv)}>Accept</Button>
+                        <Button size="sm" variant="outline" onClick={() => handleRejectInvitation(inv)}>Reject</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
           <div className="mb-6 flex items-center justify-between">
             <h2 className="text-2xl font-bold">My Projects</h2>
             <Dialog
@@ -444,6 +602,27 @@ export default function ProjectsPage() {
                       placeholder="Enter project description"
                       className="dark-input"
                     />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label className="dark:text-gray-300">Project Logo</Label>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-12 w-12">
+                        <AvatarImage src={newProjectLogoPreview || "/placeholder.svg"} />
+                        <AvatarFallback>PR</AvatarFallback>
+                      </Avatar>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] || null;
+                          if (f) {
+                            setNewProjectLogoFile(f);
+                            setNewProjectLogoPreview(URL.createObjectURL(f));
+                          }
+                        }}
+                        className="dark-input"
+                      />
+                    </div>
                   </div>
                 </div>
                 <div className="flex justify-end">
@@ -519,6 +698,14 @@ export default function ProjectsPage() {
                           >
                             <Archive className="mr-2 h-4 w-4" />
                             {project.status === "archived" ? "Restore Project" : "Archive Project"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem 
+                            className="dark:hover:bg-gray-700 text-red-600"
+                            onClick={(e) => handleDeleteProject(project, e)}
+                          >
+                            {/* Trash icon reused from users minus for consistency */}
+                            <UserMinus className="mr-2 h-4 w-4" />
+                            Delete Project
                           </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
@@ -635,6 +822,46 @@ export default function ProjectsPage() {
                   <p className="text-xs text-muted-foreground">
                     New members will be added as Contributors by default
                   </p>
+                </div>
+              )}
+
+              {/* Invite Registered Profiles */}
+              {selectedProject && isAdmin(selectedProject) && (
+                <div className="space-y-3 p-4 border rounded-lg dark:border-gray-700">
+                  <div className="flex items-center gap-2">
+                    <Users className="h-4 w-4" />
+                    <h3 className="font-semibold">Invite Registered Profiles</h3>
+                  </div>
+                  <div className="space-y-2">
+                    <UserSearchSelect
+                      label="Invite Contributor"
+                      placeholder="Search by username or wallet address..."
+                      selectedUserId={selectedInviteUserId}
+                      availableUsers={(availableUsers || []).filter(u => !selectedProject.members?.some(m => m.userId === u.id))}
+                      isLoadingUsers={isLoadingUsers}
+                      onSelectUser={setSelectedInviteUserId}
+                      emptyLabel="Clear selection"
+                    />
+                    <div className="flex justify-end">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={!selectedInviteUserId || isInvitingUserId !== null || invitedUserIds.has(selectedInviteUserId!)}
+                        onClick={() => {
+                          const user = availableUsers.find(u => u.id === selectedInviteUserId);
+                          if (user) handleInviteUser(user);
+                        }}
+                      >
+                        {isInvitingUserId && selectedInviteUserId === isInvitingUserId ? (
+                          <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Sending...</span>
+                        ) : invitedUserIds.has(selectedInviteUserId || "") ? (
+                          "Invited"
+                        ) : (
+                          "Invite"
+                        )}
+                      </Button>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -781,6 +1008,24 @@ export default function ProjectsPage() {
                   placeholder="Enter project description"
                   className="dark-input"
                 />
+              </div>
+              <div className="grid gap-2">
+                <Label className="dark:text-gray-300">Project Logo</Label>
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-12 w-12">
+                    <AvatarImage src={editProjectLogoFile ? URL.createObjectURL(editProjectLogoFile) : (selectedProject?.logoUrl || "/placeholder.svg")} />
+                    <AvatarFallback>PR</AvatarFallback>
+                  </Avatar>
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0] || null;
+                      setEditProjectLogoFile(f);
+                    }}
+                    className="dark-input"
+                  />
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-2">

@@ -1,0 +1,2 @@
+okay now i want to add a system in place for example when i am an admin and I am creating a tasks there should be a small analysis window that should get open 
+in that window it should have a analysis of data of contributors which are registered on the app there respective skill

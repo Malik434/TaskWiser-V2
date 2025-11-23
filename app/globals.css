@@ -1,0 +1,325 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 252 100% 68%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --sidebar: 250 30% 98%;
+    --sidebar-foreground: 240 10% 3.9%;
+    --radius: 0.5rem;
+
+    --priority-high: 0 84% 90%;
+    --priority-high-foreground: 0 84% 40%;
+    --priority-medium: 40 84% 90%;
+    --priority-medium-foreground: 40 84% 40%;
+    --priority-low: 120 84% 90%;
+    --priority-low-foreground: 120 84% 40%;
+
+    --kanban-todo: 210 40% 96%;
+    --kanban-todo-foreground: 210 40% 40%;
+    --kanban-in-progress: 250 40% 96%;
+    --kanban-in-progress-foreground: 250 40% 50%;
+    --kanban-done: 140 40% 96%;
+    --kanban-done-foreground: 140 40% 40%;
+  }
+
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 240 10% 8%;
+    --card-foreground: 0 0% 98%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 252 100% 68%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 3.7% 15.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 240 3.7% 15.9%;
+    --muted-foreground: 240 5% 64.9%;
+    --accent: 240 3.7% 15.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 3.7% 15.9%;
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    --sidebar: 240 6% 10%;
+    --sidebar-foreground: 0 0% 98%;
+    --radius: 0.5rem;
+
+    --priority-high: 0 62.8% 30.6%;
+    --priority-high-foreground: 0 0% 98%;
+    --priority-medium: 40 62.8% 30.6%;
+    --priority-medium-foreground: 0 0% 98%;
+    --priority-low: 120 62.8% 30.6%;
+    --priority-low-foreground: 0 0% 98%;
+
+    --kanban-todo: 240 10% 8%;
+    --kanban-todo-foreground: 210 40% 70%;
+    --kanban-in-progress: 240 10% 8%;
+    --kanban-in-progress-foreground: 250 40% 70%;
+    --kanban-done: 240 10% 8%;
+    --kanban-done-foreground: 140 40% 70%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Define custom components with proper spacing between classes */
+@layer components {
+  /* Kanban column styles */
+  .kanban-column {
+    @apply min-h-[500px];
+    @apply w-[300px];
+    @apply rounded-lg;
+    @apply p-4;
+    @apply shadow-md;
+  }
+
+  /* Add smooth scrolling and custom scrollbar - invisible by default, visible on hover/scroll */
+.kanban-column > div {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+  transition: scrollbar-color 0.3s ease;
+}
+
+/* Show scrollbar on column hover */
+.kanban-column:hover > div {
+  scrollbar-color: rgba(156, 163, 175, 0.3) transparent;
+}
+
+/* Webkit scrollbar styles */
+.kanban-column > div::-webkit-scrollbar {
+  width: 6px;
+}
+
+.kanban-column > div::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.kanban-column > div::-webkit-scrollbar-thumb {
+  background-color: transparent;
+  border-radius: 3px;
+  transition: background-color 0.3s ease;
+}
+
+/* Show scrollbar thumb on column hover */
+.kanban-column:hover > div::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.3);
+}
+
+/* Show scrollbar thumb on active scroll (when user is scrolling) */
+.kanban-column > div:active::-webkit-scrollbar-thumb,
+.kanban-column > div:focus::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.5);
+}
+
+/* Dark mode scrollbar */
+.dark .kanban-column:hover > div {
+  scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
+}
+
+.dark .kanban-column:hover > div::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.4);
+}
+
+.dark .kanban-column > div:active::-webkit-scrollbar-thumb,
+.dark .kanban-column > div:focus::-webkit-scrollbar-thumb {
+  background-color: rgba(156, 163, 175, 0.6);
+}
+
+  .kanban-column-todo {
+    @apply bg-[hsl(var(--kanban-todo))];
+  }
+
+  .kanban-column-in-progress {
+    @apply bg-[hsl(var(--kanban-in-progress))];
+  }
+
+  .kanban-column-done {
+    @apply bg-[hsl(var(--kanban-done))];
+  }
+
+  /* Task card styles */
+  .task-card {
+    @apply mb-3;
+    @apply cursor-pointer;
+    @apply rounded-lg;
+    @apply bg-card;
+    @apply p-3;
+    @apply shadow-md;
+    @apply transition-all;
+    @apply hover:shadow-lg;
+  }
+
+  /* Priority border styles */
+  .priority-high {
+    @apply border-l-4;
+    @apply border-[hsl(var(--priority-high-foreground))];
+  }
+
+  .priority-medium {
+    @apply border-l-4;
+    @apply border-[hsl(var(--priority-medium-foreground))];
+  }
+
+  .priority-low {
+    @apply border-l-4;
+    @apply border-[hsl(var(--priority-low-foreground))];
+  }
+
+  /* Priority badge styles */
+  .priority-badge-high {
+    @apply bg-[hsl(var(--priority-high))];
+    @apply text-[hsl(var(--priority-high-foreground))];
+  }
+
+  .priority-badge-medium {
+    @apply bg-[hsl(var(--priority-medium))];
+    @apply text-[hsl(var(--priority-medium-foreground))];
+  }
+
+  .priority-badge-low {
+    @apply bg-[hsl(var(--priority-low))];
+    @apply text-[hsl(var(--priority-low-foreground))];
+  }
+
+  /* Button styles with explicit border-radius */
+  .gradient-button {
+    @apply bg-gradient-to-r;
+    @apply from-purple-500;
+    @apply to-indigo-500;
+    @apply hover:from-purple-600;
+    @apply hover:to-indigo-600;
+    @apply rounded-md;
+  }
+
+  /* Ensure all buttons have proper rounded corners */
+  button,
+  .btn,
+  .button,
+  [type="button"],
+  [type="reset"],
+  [type="submit"] {
+    @apply rounded-md;
+  }
+
+  /* Dark mode specific component styles */
+  .dark-card {
+    @apply dark:bg-gray-800 dark:border-gray-700 dark:shadow-md dark:shadow-black/10;
+  }
+
+  .dark-header {
+    @apply dark:bg-gray-900/90 dark:backdrop-blur-md dark:border-gray-800;
+  }
+
+  .dark-container {
+    @apply dark:bg-gradient-to-br dark:from-gray-900 dark:to-gray-800;
+  }
+
+  .dark-input {
+    @apply dark:bg-gray-800 dark:border-gray-700;
+  }
+
+  .dark-dropdown {
+    @apply dark:bg-gray-800 dark:border-gray-700;
+  }
+}
+
+@layer utilities {
+  .animate-in {
+    animation-duration: 300ms;
+    animation-timing-function: ease-out;
+    animation-fill-mode: both;
+  }
+
+  .fade-in {
+    animation-name: fadeIn;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  .slide-in-from-top {
+    animation-name: slideInFromTop;
+  }
+
+  @keyframes slideInFromTop {
+    from {
+      transform: translateY(-10px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  .dark .dark-improved-text {
+    @apply text-gray-100;
+  }
+
+  .dark .dark-muted-text {
+    @apply text-gray-400;
+  }
+
+  .dark .dark-improved-bg {
+    @apply bg-gray-900;
+  }
+
+  .dark .dark-card-bg {
+    @apply bg-gray-800;
+  }
+
+  .dark .dark-hover:hover {
+    @apply bg-gray-700;
+  }
+
+  .dark .dark-border {
+    @apply border-gray-700;
+  }
+
+  .dark .dark-shadow {
+    @apply shadow-lg shadow-black/20;
+  }
+
+  .dark .dark-gradient {
+    @apply bg-gradient-to-br from-gray-900 to-gray-800;
+  }
+
+  .dark .dark-highlight {
+    @apply bg-primary/20 text-primary-foreground;
+  }
+}

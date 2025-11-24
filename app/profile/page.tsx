@@ -22,6 +22,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { SPECIALTY_OPTIONS } from "@/lib/constants";
 
 export default function ProfilePage() {
   const { account, isConnected } = useWeb3()
@@ -40,38 +41,6 @@ export default function ProfilePage() {
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([])
   const router = useRouter()
 
-  const SPECIALTY_OPTIONS = [
-    "Frontend",
-    "Backend",
-    "Full Stack",
-    "Smart Contracts",
-    "DevOps",
-    "UI/UX",
-    "Data Science",
-    "AI/ML",
-    "QA",
-    "Security",
-    "Product Management",
-    "Community",
-    "Technical Writing",
-    "Documentation",
-    "Marketing",
-    "Growth",
-    "DAO Operations",
-    "Treasury",
-    "Legal",
-    "Research",
-    "Partnerships",
-    "Content",
-    "Social Media",
-    "Analytics",
-    "Mobile",
-    "Cloud",
-    "Protocol Design",
-    "Governance",
-    "Translation",
-    "Video",
-  ]
 
   // This effect ensures we only check wallet connection status on the client side
   useEffect(() => {

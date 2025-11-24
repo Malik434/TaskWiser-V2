@@ -8,6 +8,7 @@ import {
   collection,
   addDoc,
   getDocs,
+  getDoc,
   doc,
   updateDoc,
   deleteDoc,
@@ -22,7 +23,7 @@ import {
   type User,
 } from "firebase/auth";
 import { getStorage, ref, type StorageReference } from "firebase/storage";
-import type { UserProfile } from "@/lib/types";
+import type { ProjectMember, UserProfile } from "@/lib/types";
 
 // Firebase configuration
 const firebaseConfig = {
@@ -92,6 +93,18 @@ interface FirebaseContextType {
   ) => Promise<void>;
 }
 
+const removeUndefinedFields = <T extends Record<string, any>>(input: T): T => {
+  return Object.entries(input).reduce(
+    (acc, [key, value]) => {
+      if (value !== undefined) {
+        acc[key] = value;
+      }
+      return acc;
+    },
+    {} as Record<string, any>
+  ) as T;
+};
+
 // Update the default context value to include isInitialized
 const FirebaseContext = createContext<FirebaseContextType>({
   app: null,
@@ -137,6 +150,86 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [storage, setStorage] = useState<StorageReference | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+
+  const getCurrentUserUid = () => user?.uid || auth?.currentUser?.uid || null;
+
+  const requireAuthenticatedUid = () => {
+    const uid = getCurrentUserUid();
+    if (!uid) {
+      throw new Error(
+        "A signed-in Firebase user is required to perform this action."
+      );
+    }
+    return uid;
+  };
+
+  const resolveProfileOwnerUid = async (
+    profileId?: string | null
+  ): Promise<string | undefined> => {
+    if (!db || !profileId) {
+      return undefined;
+    }
+
+    try {
+      const profileRef = doc(db, "users", profileId);
+      const profileSnap = await getDoc(profileRef);
+      if (!profileSnap.exists()) {
+        return undefined;
+      }
+      const profileData = profileSnap.data() as UserProfile;
+      return profileData.ownerUid || undefined;
+    } catch (error) {
+      console.error("Error resolving profile owner UID:", error);
+      return undefined;
+    }
+  };
+
+  const normalizeProjectMembers = async (
+    members: ProjectMember[] = []
+  ): Promise<{
+    members: ProjectMember[];
+    memberIds: string[];
+    memberRoleMap: Record<string, "admin" | "manager" | "contributor">;
+  }> => {
+    if (!members.length) {
+      return {
+        members,
+        memberIds: [],
+        memberRoleMap: {},
+      };
+    }
+
+    const resolvedMembers = await Promise.all(
+      members.map(async (member) => {
+        if (member.userUid || !member.userId) {
+          return member;
+        }
+        const ownerUid = await resolveProfileOwnerUid(member.userId);
+        return ownerUid ? { ...member, userUid: ownerUid } : member;
+      })
+    );
+
+    const memberIds: string[] = [];
+    const memberRoleMap: Record<
+      string,
+      "admin" | "manager" | "contributor"
+    > = {};
+
+    resolvedMembers.forEach((member) => {
+      if (member.userUid && !memberIds.includes(member.userUid)) {
+        memberIds.push(member.userUid);
+      }
+      if (member.userUid && member.role) {
+        memberRoleMap[member.userUid] = member.role;
+      }
+    });
+
+    return {
+      members: resolvedMembers,
+      memberIds,
+      memberRoleMap,
+    };
+  };
 
   const initializeFirebase = async () => {
     try {
@@ -285,9 +378,11 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       console.log(
         `Creating user profile for address: ${profile.address.toLowerCase()}`
       );
+      const ownerUid = requireAuthenticatedUid();
       const now = new Date().toISOString();
       const userProfile = {
         ...profile,
+        ownerUid,
         address: profile.address.toLowerCase(),
         createdAt: now,
         updatedAt: now,
@@ -406,9 +501,35 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       throw new Error("Firestore is not initialized");
     }
     try {
+      const taskOwnerUid = requireAuthenticatedUid();
+      const taskPayload: any = {
+        ...task,
+        userUid: task.userUid || taskOwnerUid,
+      };
+
+      if (Object.prototype.hasOwnProperty.call(taskPayload, "assigneeId")) {
+        if (taskPayload.assigneeId) {
+          taskPayload.assigneeUid = await resolveProfileOwnerUid(
+            taskPayload.assigneeId
+          );
+        } else {
+          taskPayload.assigneeUid = null;
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(taskPayload, "reviewerId")) {
+        if (taskPayload.reviewerId) {
+          taskPayload.reviewerUid = await resolveProfileOwnerUid(
+            taskPayload.reviewerId
+          );
+        } else {
+          taskPayload.reviewerUid = null;
+        }
+      }
+
       // Remove undefined fields as Firestore doesn't handle them well
       const cleanTask = Object.fromEntries(
-        Object.entries(task).filter(([_, value]) => value !== undefined)
+        Object.entries(taskPayload).filter(([_, value]) => value !== undefined)
       );
       
       console.log("Adding task to Firestore:", cleanTask);
@@ -446,8 +567,30 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
+      const payload: any = { ...data };
+
+      if (Object.prototype.hasOwnProperty.call(payload, "assigneeId")) {
+        if (payload.assigneeId) {
+          payload.assigneeUid = await resolveProfileOwnerUid(
+            payload.assigneeId
+          );
+        } else {
+          payload.assigneeUid = null;
+        }
+      }
+
+      if (Object.prototype.hasOwnProperty.call(payload, "reviewerId")) {
+        if (payload.reviewerId) {
+          payload.reviewerUid = await resolveProfileOwnerUid(
+            payload.reviewerId
+          );
+        } else {
+          payload.reviewerUid = null;
+        }
+      }
+
       const taskRef = doc(db, "tasks", taskId);
-      await updateDoc(taskRef, data);
+      await updateDoc(taskRef, removeUndefinedFields(payload));
     } catch (error) {
       console.error("Error updating task:", error);
     }
@@ -607,22 +750,65 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       return "";
     }
     try {
+      const creatorUid = project.createdByUid || getCurrentUserUid();
+      if (!creatorUid) {
+        throw new Error(
+          "Authenticated Firebase user required before creating a project."
+        );
+      }
+
       // Get the user profile to add them as admin
-      const userProfile = await getUserProfile(project.createdBy);
-      
-      // Prepare the project data with the creator as admin
-      const projectData = {
-        ...project,
-        members: userProfile ? [
+      const userProfile = project.createdBy
+        ? await getUserProfile(project.createdBy)
+        : null;
+
+      let initialMembers: ProjectMember[] = Array.isArray(project.members)
+        ? project.members
+        : [];
+
+      if (userProfile) {
+        const alreadyIncluded = initialMembers.some(
+          (member) => member.userId === userProfile.id
+        );
+        if (!alreadyIncluded) {
+          initialMembers = [
+            {
+              userId: userProfile.id,
+              userUid: userProfile.ownerUid || creatorUid,
+              role: "admin" as const,
+              joinedAt: new Date().toISOString(),
+              isActive: true,
+            },
+            ...initialMembers,
+          ];
+        }
+      } else if (!initialMembers.length) {
+        initialMembers = [
           {
-            userId: userProfile.id,
+            userId: "",
+            userUid: creatorUid,
             role: "admin" as const,
             joinedAt: new Date().toISOString(),
             isActive: true,
-          }
-        ] : [],
-      };
-      
+          },
+        ];
+      }
+
+      const {
+        members: normalizedMembers,
+        memberIds,
+        memberRoleMap,
+      } = await normalizeProjectMembers(initialMembers);
+
+      // Prepare the project data with the creator as admin
+      const projectData = removeUndefinedFields({
+        ...project,
+        createdByUid: creatorUid,
+        members: normalizedMembers,
+        memberIds,
+        memberRoleMap,
+      });
+
       const docRef = await addDoc(collection(db, "projects"), projectData);
       // Also save the ID in the document itself for easier querying
       await updateDoc(docRef, { id: docRef.id });
@@ -653,8 +839,21 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     try {
+      let payload = { ...data };
+
+      if (Array.isArray(payload.members)) {
+        const {
+          members: normalizedMembers,
+          memberIds,
+          memberRoleMap,
+        } = await normalizeProjectMembers(payload.members as ProjectMember[]);
+        payload.members = normalizedMembers;
+        payload.memberIds = memberIds;
+        payload.memberRoleMap = memberRoleMap;
+      }
+
       const projectRef = doc(db, "projects", projectId);
-      await updateDoc(projectRef, data);
+      await updateDoc(projectRef, removeUndefinedFields(payload));
     } catch (error) {
       console.error("Error updating project:", error);
     }
@@ -837,11 +1036,12 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
           if (!alreadyMember) {
             const newMember = {
               userId: inviteData.inviteeUserId,
+              userUid: await resolveProfileOwnerUid(inviteData.inviteeUserId),
               role: "contributor" as const,
               joinedAt: new Date().toISOString(),
               isActive: true,
             };
-            await updateDoc(projectRef, { members: [...members, newMember] });
+            await updateProject(inviteData.projectId, { members: [...members, newMember] });
           }
         }
       }
@@ -958,11 +1158,12 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
             const newMember = {
               userId: reqData.applicantUserId,
               address: reqData.applicantAddress.toLowerCase(),
+              userUid: await resolveProfileOwnerUid(reqData.applicantUserId),
               role: "contributor" as const,
               joinedAt: new Date().toISOString(),
               isActive: true,
             }
-            await updateDoc(projectRef, { members: [...members, newMember] })
+            await updateProject(reqData.projectId, { members: [...members, newMember] })
           }
         }
       }

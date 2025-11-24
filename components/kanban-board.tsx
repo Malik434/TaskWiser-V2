@@ -5,14 +5,13 @@ import { DialogTrigger } from "@/components/ui/dialog";
 import type React from "react";
 
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ethers } from "ethers";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useFirebase } from "./firebase-provider";
 import { useWeb3 } from "./web3-provider";
 import { Button } from "@/components/ui/button";
 import { UserSearchSelect } from "./user-search-select";
 import { TaskCard } from "./task-card";
-import { StatusSelect, PrioritySelect, RewardInput, TaskPointsInput } from "./task-form-fields";
+import { StatusSelect, PrioritySelect, RewardInput, TaskPointsInput, TagsSelect } from "./task-form-fields";
 import {
   Loader2,
   CheckCircle,
@@ -66,7 +65,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useToast } from "@/hooks/use-toast";
+import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -85,8 +84,13 @@ import type { Task, TaskProposal, UserProfile, Project } from "@/lib/types";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PaymentPopup } from "./payment-popup";
-import { PaymentComponent, type SupportedToken } from "./payment-component";
 import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
+import { deleteField } from "firebase/firestore";
+import { ThreeBackground } from "./three-bg";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+import { estimateTaskCostUSD, type CostEstimate } from "@/lib/cost-estimator";
+import { SPECIALTY_OPTIONS } from "@/lib/constants";
 
 type Column = {
   id: string;
@@ -110,6 +114,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     getProjectById,
     getJoinRequestsForProject,
     respondToProjectJoinRequest,
+    inviteUserToProject,
   } = useFirebase();
   const { account } = useWeb3();
   const { toast } = useToast();
@@ -150,9 +155,64 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     description: "",
     status: "todo",
     priority: "medium",
-  isOpenBounty: false,
-  escrowEnabled: false,
+    isOpenBounty: false,
+    escrowEnabled: false,
+    tags: [],
   });
+
+  // Real-time cost estimate (admin-only UI will render this)
+  const costEstimate = useMemo(() =>
+    estimateTaskCostUSD({
+      title: newTask.title || "",
+      description: newTask.description || "",
+      tags: newTask.tags || [],
+      priority: newTask.priority || "medium",
+    }),
+    [newTask.title, newTask.description, newTask.tags, newTask.priority]
+  );
+  // AI estimator state
+  const [useAIEstimator, setUseAIEstimator] = useState(false);
+  const [aiEstimate, setAiEstimate] = useState<CostEstimate | null>(null);
+  const [aiEstimating, setAiEstimating] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!useAIEstimator) {
+      setAiEstimate(null);
+      return;
+    }
+    const payload = {
+      title: newTask.title || "",
+      description: newTask.description || "",
+      tags: newTask.tags || [],
+      priority: newTask.priority || "medium",
+    };
+    setAiEstimating(true);
+    setAiError(null);
+    const handle = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/estimate-cost", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (res.ok && data?.estimate) {
+          setAiEstimate(data.estimate as CostEstimate);
+        } else {
+          setAiError("Estimation failed");
+          setAiEstimate(null);
+        }
+      } catch (e) {
+        setAiError("Network error");
+        setAiEstimate(null);
+      } finally {
+        setAiEstimating(false);
+      }
+    }, 600);
+    return () => clearTimeout(handle);
+  }, [useAIEstimator, newTask.title, newTask.description, newTask.tags, newTask.priority]);
+
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
@@ -165,6 +225,8 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [availableUsers, setAvailableUsers] = useState<UserProfile[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+
+  const specialtyOptions = SPECIALTY_OPTIONS;
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isManagingProposal, setIsManagingProposal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -174,10 +236,26 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   const [assignedTasks, setAssignedTasks] = useState<Task[]>([]);
   const [showRewardSection, setShowRewardSection] = useState(false);
   const [showAssigneeSection, setShowAssigneeSection] = useState(false);
+  const [showAnalysisPanel, setShowAnalysisPanel] = useState(true);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
   const [isProjectMember, setIsProjectMember] = useState(false);
   const [userProjectRole, setUserProjectRole] = useState<"admin" | "manager" | "contributor" | null>(null);
+  // Contributor analysis states
+  const [analysisTag, setAnalysisTag] = useState<string | null>(null);
+  const [contributorStats, setContributorStats] = useState<Array<{
+    user: UserProfile,
+    tasksCompleted: number,
+    totalAssigned: number,
+    tagCompleted: number,
+    tagTotal: number,
+    avgCompletionMs: number | null,
+    isMember: boolean,
+  }>>([]);
+  const [recommendedContributor, setRecommendedContributor] = useState<UserProfile | null>(null);
   // New states for payment popup
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [taskBeingPaid, setTaskBeingPaid] = useState<Task | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isPaymentPopupOpen, setIsPaymentPopupOpen] = useState(false);
   const [taskToPay, setTaskToPay] = useState<Task | null>(null);
   const [isProposalDialogOpen, setIsProposalDialogOpen] = useState(false);
@@ -187,9 +265,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   // Multiple Selection and batch processing
   const [selectedTasks, setSelectedTasks] = useState<Set<string>>(new Set());
   const [isSelectionMode, setIsSelectionMode] = useState(false);
-  const [selectionContext, setSelectionContext] = useState<{ columnId: string; scope?: "unpaid" } | null>(null);
   const [isBatchPaymentOpen, setIsBatchPaymentOpen] = useState(false);
-  const [batchPaymentTasks, setBatchPaymentTasks] = useState<Task[]>([]);
+  const [isProcessingBatchPayment, setIsProcessingBatchPayment] =
+    useState(false);
 
   // Specific loading states for better UX
   const [isCreatingTask, setIsCreatingTask] = useState(false);
@@ -211,7 +289,6 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     destination: string;
     sourceColumn: string;
   } | null>(null);
-  const [isProcessingBatchMove, setIsProcessingBatchMove] = useState(false);
 
   // Refs for debouncing and version tracking
   const fetchAllTasksRef = useRef<NodeJS.Timeout | null>(null);
@@ -235,39 +312,100 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     if (!address) return "Unknown";
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
-  const toSupportedToken = (token?: string | null): SupportedToken | null => {
-    if (!token) return null;
-    const normalized = token.toUpperCase();
-    return normalized === "USDC" || normalized === "USDT"
-      ? (normalized as SupportedToken)
-      : null;
-  };
-  const resolveAssigneeWallet = (task: Task) => {
-    const candidateId = task.assigneeId || task.assignee?.id;
-    if (!candidateId) return null;
-    const profile =
-      availableUsers.find((user) => user.id === candidateId) ||
-      availableUsers.find((user) => user.address === candidateId);
-    if (profile?.address) {
-      return profile.address;
-    }
-    if (ethers.isAddress(candidateId)) {
-      return candidateId;
-    }
-    return null;
-  };
-  const openBatchPaymentDialog = (tasks: Task[]) => {
-    if (!tasks.length) {
-      toast({
-        title: "No payable tasks selected",
-        description: "Select at least one unpaid task with a reward to continue.",
-        variant: "destructive",
-      });
+
+  // Compute and rank contributors for selected tag (or general stats when no tag)
+  useEffect(() => {
+    const tag = (newTask.tags || [])[0] || null;
+    setAnalysisTag(tag);
+
+    if (userProjectRole !== "admin" || !currentProject) {
+      setContributorStats([]);
+      setRecommendedContributor(null);
       return;
     }
-    setBatchPaymentTasks(tasks);
-    setIsBatchPaymentOpen(true);
-  };
+
+    const completedStatuses = new Set(["done", "approved"]);
+
+    // General stats (no tag selected): compute per-user totals and completions
+    if (!tag) {
+      const generalStats = (availableUsers || []).map((user) => {
+        const userAssigned = (allTasks || []).filter((t) => t.assigneeId === user.id || t.assigneeId === user.address);
+        const userCompleted = userAssigned.filter((t) => completedStatuses.has(String(t.status || "").toLowerCase()));
+        const durations = userCompleted.map((t) => {
+          const created = t.createdAt ? new Date(t.createdAt).getTime() : Date.now();
+          const updated = t.updatedAt ? new Date(t.updatedAt).getTime() : created;
+          return Math.max(0, updated - created);
+        });
+        const avg = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : null;
+        const isMember = !!currentProject?.members?.some((m) => m.userId === user.id);
+        return {
+          user,
+          tasksCompleted: userCompleted.length,
+          totalAssigned: userAssigned.length,
+          tagCompleted: 0,
+          tagTotal: 0,
+          avgCompletionMs: avg,
+          isMember,
+        };
+      });
+
+      const sortedGeneral = generalStats.sort((a, b) => {
+        if (b.tasksCompleted !== a.tasksCompleted) return b.tasksCompleted - a.tasksCompleted;
+        if ((a.avgCompletionMs ?? Infinity) !== (b.avgCompletionMs ?? Infinity))
+          return (a.avgCompletionMs ?? Infinity) - (b.avgCompletionMs ?? Infinity);
+        return (b.totalAssigned ?? 0) - (a.totalAssigned ?? 0);
+      });
+
+      setContributorStats(sortedGeneral);
+      setRecommendedContributor(sortedGeneral[0]?.user ?? null);
+      return;
+    }
+
+    // Tag-specific stats
+    const normalizedTag = String(tag).toLowerCase();
+
+    const stats = (availableUsers || []).map((user) => {
+      const userAssigned = (allTasks || []).filter((t) => t.assigneeId === user.id || t.assigneeId === user.address);
+      const userCompleted = userAssigned.filter((t) => completedStatuses.has(String(t.status || "").toLowerCase()));
+
+      const tagAssigned = userAssigned.filter(
+        (t) => Array.isArray(t.tags) && t.tags.some((tt) => String(tt).toLowerCase() === normalizedTag)
+      );
+      const tagCompleted = tagAssigned.filter((t) => completedStatuses.has(String(t.status || "").toLowerCase()));
+
+      const durations = userCompleted.map((t) => {
+        const created = t.createdAt ? new Date(t.createdAt).getTime() : Date.now();
+        const updated = t.updatedAt ? new Date(t.updatedAt).getTime() : created;
+        return Math.max(0, updated - created);
+      });
+      const avg = durations.length > 0 ? durations.reduce((a, b) => a + b, 0) / durations.length : null;
+
+      const isMember = !!currentProject?.members?.some((m) => m.userId === user.id);
+
+      return {
+        user,
+        tasksCompleted: userCompleted.length,
+        totalAssigned: userAssigned.length,
+        tagCompleted: tagCompleted.length,
+        tagTotal: tagAssigned.length,
+        avgCompletionMs: avg,
+        isMember,
+      };
+    });
+
+    const sorted = stats.sort((a, b) => {
+      if (b.tagCompleted !== a.tagCompleted) return b.tagCompleted - a.tagCompleted;
+      if ((a.avgCompletionMs ?? Infinity) !== (b.avgCompletionMs ?? Infinity))
+        return (a.avgCompletionMs ?? Infinity) - (b.avgCompletionMs ?? Infinity);
+      if (b.tasksCompleted !== a.tasksCompleted) return b.tasksCompleted - a.tasksCompleted;
+      const aHas = (a.user.specialties || []).some((s) => s.toLowerCase() === normalizedTag);
+      const bHas = (b.user.specialties || []).some((s) => s.toLowerCase() === normalizedTag);
+      return Number(bHas) - Number(aHas);
+    });
+
+    setContributorStats(sorted);
+    setRecommendedContributor(sorted[0]?.user ?? null);
+  }, [newTask.tags, availableUsers, allTasks, currentProject, userProjectRole]);
   const syncTaskAcrossState = (updatedTask: Task) => {
     const updater = (task: Task) =>
       task.id === updatedTask.id ? updatedTask : task;
@@ -333,6 +471,11 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
           setCurrentUserId(null);
         }
       })();
+
+      // Compute contributor analysis when data changes
+      // This effect depends on tags later; here we just seed once when dialog opens
+      const tags = newTask.tags || [];
+      setAnalysisTag(tags.length > 0 ? tags[0] : null);
       
       // Set up real-time listeners
       const unsubscribe = setupRealtimeListeners();
@@ -358,6 +501,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
         reviewerId: selectedTask.reviewerId,
         isOpenBounty: selectedTask.isOpenBounty,
         escrowEnabled: selectedTask.escrowEnabled,
+        tags: selectedTask.tags || [],
       });
     }
   }, [selectedTask, isEditMode]);
@@ -367,8 +511,16 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     updateColumnsBasedOnView();
   }, [activeView, allTasks, createdTasks, assignedTasks]);
 
+  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl/Cmd + Shift + S: Toggle selection mode
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "S") {
+        e.preventDefault();
+        setIsSelectionMode((prev) => !prev);
+      }
+
+      // Escape: Clear selection and close dialogs
       if (e.key === "Escape") {
         if (isSelectionMode) {
           clearSelection();
@@ -379,23 +531,14 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
       if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === "P") {
         if (selectedTasks.size > 0 && canProcessBatchPayment) {
           e.preventDefault();
-          const allTasks = columns.flatMap((col) => col.tasks);
-          const selection = Array.from(selectedTasks)
-            .map((id) => allTasks.find((task) => task.id === id))
-            .filter((task): task is Task => {
-              if (!task) return false;
-              if (!task.reward || !task.rewardAmount) return false;
-              if (task.paid) return false;
-              return true;
-            });
-          openBatchPaymentDialog(selection);
+          setIsBatchPaymentOpen(true);
         }
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isSelectionMode, selectedTasks, canProcessBatchPayment, columns]);
+  }, [isSelectionMode, selectedTasks]);
 
   // Cleanup on unmount to prevent memory leaks
   useEffect(() => {
@@ -1126,6 +1269,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
         updatedAt: timestamp,
         isOpenBounty: Boolean(newTask.isOpenBounty),
         escrowEnabled: Boolean(newTask.escrowEnabled),
+        // Persist estimated cost for reporting/analytics
+        estimatedCostUSD: useAIEstimator && aiEstimate ? aiEstimate.totalUSD : costEstimate?.totalUSD,
+        estimatedHours: useAIEstimator && aiEstimate ? aiEstimate.estimatedHours : costEstimate?.estimatedHours,
       };
 
       // Only add optional fields if they have values
@@ -1142,6 +1288,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
       }
       if (newTask.reviewerId) {
         taskToCreate.reviewerId = newTask.reviewerId;
+      }
+      if (newTask.tags && newTask.tags.length > 0) {
+        taskToCreate.tags = newTask.tags;
       }
       if (projectId) {
         taskToCreate.projectId = projectId;
@@ -1174,6 +1323,27 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
             username: assigneeProfile.username,
             profilePicture: assigneeProfile.profilePicture,
           };
+        }
+      }
+
+      // Auto-invite assignee to project if not already a member
+      if (currentProject && newTask.assigneeId && !newTask.isOpenBounty) {
+        const isMember = !!currentProject.members?.some(
+          (m) => m.userId === newTask.assigneeId
+        );
+        if (!isMember) {
+          try {
+            await inviteUserToProject(
+              currentProject.id,
+              newTask.assigneeId,
+              account,
+              currentProject.title
+            );
+            toast({ title: "Invitation sent" });
+          } catch (e) {
+            console.error("Failed to auto-invite assignee:", e);
+            toast({ title: "Failed to send invite", variant: "destructive" });
+          }
         }
       }
 
@@ -1230,6 +1400,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
         priority: "medium",
         isOpenBounty: false,
         escrowEnabled: false,
+        tags: [],
       });
 
       setIsDialogOpen(false);
@@ -1273,17 +1444,19 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
       const updatedTaskData = {
         ...editedTask,
         reward:
-          editedTask.reward === "no_reward" ? undefined : editedTask.reward,
-        assigneeId: isOpenBountyEffective ? null : editedTask.assigneeId,
-        reviewerId: editedTask.reviewerId,
+          editedTask.reward === "no_reward" ? deleteField() : editedTask.reward,
+        assigneeId: isOpenBountyEffective ? null : (typeof editedTask.assigneeId !== "undefined" ? editedTask.assigneeId : selectedTask.assigneeId ?? null),
+        reviewerId: typeof editedTask.reviewerId !== "undefined" ? editedTask.reviewerId : (selectedTask.reviewerId ?? null),
         isOpenBounty: isOpenBountyEffective,
         escrowEnabled:
           typeof editedTask.escrowEnabled === "boolean"
             ? editedTask.escrowEnabled
             : selectedTask.escrowEnabled,
-        escrowStatus: editedTask.escrowEnabled
-          ? selectedTask.escrowStatus || "locked"
-          : undefined,
+        escrowStatus: (typeof editedTask.escrowEnabled === "boolean"
+          ? editedTask.escrowEnabled
+          : selectedTask.escrowEnabled)
+          ? (selectedTask.escrowStatus || "locked")
+          : deleteField(),
         updatedAt: timestamp,
       };
 
@@ -1326,17 +1499,52 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
         reviewer = undefined;
       }
 
+      // Normalize FieldValue to undefined for Task object (FieldValue is only for Firestore updates)
+      const normalizedReward = editedTask.reward === "no_reward" ? undefined : editedTask.reward;
+      const normalizedEscrowStatus = (typeof editedTask.escrowEnabled === "boolean"
+        ? editedTask.escrowEnabled
+        : selectedTask.escrowEnabled)
+        ? (selectedTask.escrowStatus || "locked")
+        : undefined;
+
       const updatedTask: Task = {
         ...selectedTask,
         ...editedTask,
-        reward: updatedTaskData.reward,
+        reward: normalizedReward,
         assignee,
         reviewer,
         isOpenBounty: updatedTaskData.isOpenBounty,
         escrowEnabled: updatedTaskData.escrowEnabled,
-        escrowStatus: updatedTaskData.escrowStatus,
+        escrowStatus: normalizedEscrowStatus,
         updatedAt: timestamp,
       };
+
+      // Auto-invite edited assignee if not already a member
+      const newAssigneeId = editedTask.assigneeId;
+      if (
+        currentProject &&
+        !isOpenBountyEffective &&
+        newAssigneeId &&
+        newAssigneeId !== selectedTask.assigneeId
+      ) {
+        const isMember = !!currentProject.members?.some(
+          (m) => m.userId === newAssigneeId
+        );
+        if (!isMember && account) {
+          try {
+            await inviteUserToProject(
+              currentProject.id,
+              newAssigneeId,
+              account,
+              currentProject.title
+            );
+            toast({ title: "Invitation sent" });
+          } catch (e) {
+            console.error("Failed to auto-invite assignee:", e);
+            toast({ title: "Failed to send invite", variant: "destructive" });
+          }
+        }
+      }
 
       await updateTask(selectedTask.id, updatedTaskData);
 
@@ -1597,6 +1805,27 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
         isOpenBounty: false,
       });
 
+      // Auto-invite newly assigned user if they arenΓÇÖt a project member
+      if (currentProject && account) {
+        const isMember = !!currentProject.members?.some(
+          (m) => m.userId === assigneeData.id
+        );
+        if (!isMember) {
+          try {
+            await inviteUserToProject(
+              currentProject.id,
+              assigneeData.id,
+              account,
+              currentProject.title
+            );
+            toast({ title: "Invitation sent" });
+          } catch (e) {
+            console.error("Failed to auto-invite assignee:", e);
+            toast({ title: "Failed to send invite", variant: "destructive" });
+          }
+        }
+      }
+
       const updatedTask: Task = {
         ...targetTask,
         assigneeId: assigneeData.id,
@@ -1705,8 +1934,8 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
         updatedTask.rewardAmount &&
         updatedTask.assigneeId
       ) {
-        setTaskToPay(updatedTask);
-        setIsPaymentPopupOpen(true);
+        setTaskBeingPaid(updatedTask);
+        setIsPaymentDialogOpen(true);
       } else {
         toast({
           title: "Submission approved",
@@ -1778,42 +2007,34 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     }
   };
 
-  const markTasksAsPaid = async (taskIds: string[]) => {
-    const uniqueIds = Array.from(new Set(taskIds));
-    const timestamp = new Date().toISOString();
-
-    await Promise.all(
-      uniqueIds.map((taskId) =>
-        updateTask(taskId, {
-          paid: true,
-          updatedAt: timestamp,
-        })
-      )
-    );
-
-    const updateTaskInList = (list: Task[]) =>
-      list.map((task) =>
-        uniqueIds.includes(task.id)
-          ? { ...task, paid: true, updatedAt: timestamp }
-          : task
-      );
-
-    setAllTasks((prev) => updateTaskInList(prev));
-    setCreatedTasks((prev) => updateTaskInList(prev));
-    setAssignedTasks((prev) => updateTaskInList(prev));
-    setSelectedTask((prev) =>
-      prev && uniqueIds.includes(prev.id)
-        ? { ...prev, paid: true, updatedAt: timestamp }
-        : prev
-    );
-    updateColumnsBasedOnView();
-  };
-
   const handlePaymentComplete = async (taskId: string) => {
     setIsLoading(true);
 
     try {
-      await markTasksAsPaid([taskId]);
+      // Update the task with paid status
+      const updatedTask = {
+        ...taskToPay!,
+        paid: true,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await updateTask(taskId, {
+        paid: true,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Update our task lists
+      const updateTaskInList = (list: Task[]) =>
+        list.map((task) => (task.id === updatedTask.id ? updatedTask : task));
+
+      setAllTasks(updateTaskInList(allTasks));
+      setCreatedTasks(updateTaskInList(createdTasks));
+      setAssignedTasks(updateTaskInList(assignedTasks));
+
+      // Update columns based on current view
+      updateColumnsBasedOnView();
+
+      // Close the payment popup
       setIsPaymentPopupOpen(false);
       setTaskToPay(null);
 
@@ -1833,24 +2054,60 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     }
   };
 
-  const handleBatchPaymentSuccess = async (taskIds: string[]) => {
+  // Handle payment for a task
+  const handlePayTask = async () => {
+    if (!taskBeingPaid) return;
+
+    setIsProcessingPayment(true);
+
     try {
-      await markTasksAsPaid(taskIds);
-      setIsBatchPaymentOpen(false);
-      setBatchPaymentTasks([]);
-      clearSelection();
+      // Simulate payment processing delay
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      const updatedTask = {
+        ...taskBeingPaid,
+        paid: true,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await updateTask(taskBeingPaid.id, {
+        paid: true,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Update our task lists
+      const updateTaskInList = (list: Task[]) =>
+        list.map((task) => (task.id === updatedTask.id ? updatedTask : task));
+
+      setAllTasks(updateTaskInList(allTasks));
+      setCreatedTasks(updateTaskInList(createdTasks));
+      setAssignedTasks(updateTaskInList(assignedTasks));
+
+      // Update columns based on current view
+      updateColumnsBasedOnView();
+
+      // If the task being paid is also the selected task, update it
+      if (selectedTask && selectedTask.id === updatedTask.id) {
+        setSelectedTask(updatedTask);
+      }
 
       toast({
-        title: "Batch payment successful",
-        description: `Successfully paid ${taskIds.length} task(s).`,
+        title: "Payment successful",
+        description: `Successfully paid ${updatedTask.rewardAmount} ${updatedTask.reward} to the assignee.`,
       });
+
+      // Close the payment dialog
+      setIsPaymentDialogOpen(false);
+      setTaskBeingPaid(null);
     } catch (error) {
-      console.error("Error finalizing batch payment:", error);
+      console.error("Error processing payment:", error);
       toast({
-        title: "Error",
-        description: "Failed to update batch payment status",
+        title: "Payment failed",
+        description: "Failed to process payment. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsProcessingPayment(false);
     }
   };
 
@@ -2162,36 +2419,8 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     return availableUsers.find((user) => user.address === walletAddress);
   };
 
-  const isSelectionActiveFor = (columnId: string, scope?: "unpaid") =>
-    selectionContext?.columnId === columnId && selectionContext?.scope === scope;
-
-  const toggleColumnSelectionMode = (columnId: string, scope?: "unpaid") => {
-    if (isSelectionActiveFor(columnId, scope)) {
-      clearSelection();
-      return;
-    }
-
-    setSelectedTasks(new Set());
-    setSelectionContext({ columnId, scope });
-    setIsSelectionMode(true);
-  };
-
   // Toggle individual task selection
   const toggleTaskSelection = (taskId: string, task: Task) => {
-    if (!selectionContext) {
-      return;
-    }
-
-    const matchesColumn =
-      selectionContext.columnId === "done"
-        ? task.status === "done" &&
-          (selectionContext.scope !== "unpaid" || !task.paid)
-        : task.status === selectionContext.columnId;
-
-    if (!matchesColumn) {
-      return;
-    }
-
     // Only allow selection of tasks with rewards that haven't been paid
     if (!task.reward || !task.rewardAmount || task.paid) {
       return;
@@ -2203,36 +2432,31 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     } else {
       newSelection.add(taskId);
     }
+    setSelectedTasks(newSelection);
+
+    // Auto-disable selection mode if no tasks selected
     if (newSelection.size === 0) {
-      clearSelection();
-    } else {
-      setSelectedTasks(newSelection);
+      setIsSelectionMode(false);
     }
   };
 
-  // Select all payable tasks in a column (optionally scoped)
-  const selectAllInColumn = (columnId: string, scope?: "unpaid") => {
+  // Select all payable tasks in a column
+  const selectAllInColumn = (columnId: string) => {
     const column = columns.find((col) => col.id === columnId);
     if (!column) return;
 
-    const targetSelection = isSelectionActiveFor(columnId, scope)
-      ? new Set(selectedTasks)
-      : new Set<string>();
-
+    const newSelection = new Set(selectedTasks);
     column.tasks.forEach((task) => {
       if (
         task.reward &&
         task.rewardAmount &&
         !task.paid &&
-        task.userId === account &&
-        (scope !== "unpaid" || !task.paid)
+        task.userId === account
       ) {
-        targetSelection.add(task.id);
+        newSelection.add(task.id);
       }
     });
-
-    setSelectedTasks(targetSelection);
-    setSelectionContext({ columnId, scope });
+    setSelectedTasks(newSelection);
     setIsSelectionMode(true);
   };
 
@@ -2240,7 +2464,6 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   const clearSelection = () => {
     setSelectedTasks(new Set());
     setIsSelectionMode(false);
-    setSelectionContext(null);
   };
 
   // Get selected tasks details
@@ -2258,10 +2481,8 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   };
 
   // Calculate total payment by token
-  const calculateTotalPayment = (tasksOverride?: Task[]) => {
-    const tasks = (tasksOverride ?? getSelectedTasksDetails()).filter(
-      (task) => task.reward && task.rewardAmount
-    );
+  const calculateTotalPayment = () => {
+    const tasks = getSelectedTasksDetails();
     const totals: Record<string, number> = {};
 
     tasks.forEach((task) => {
@@ -2276,74 +2497,75 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     return totals;
   };
 
-  const batchPaymentMeta = useMemo(() => {
-    const recipients = batchPaymentTasks.map((task) => {
-      const address = resolveAssigneeWallet(task);
-      const token = toSupportedToken(task.reward);
-      const amount = task.rewardAmount ?? 0;
-      return { task, address, token, amount };
-    });
+  // Process batch payment
+  const processBatchPayment = async () => {
+    // Check if user has permission to process batch payment
+    if (!canProcessBatchPayment) {
+      toast({
+        title: "Permission Denied",
+        description: "Only project admins can process batch payments",
+        variant: "destructive",
+      });
+      return;
+    }
 
-    const missingAddress = recipients.filter((entry) => !entry.address);
-    const invalidAmounts = recipients.filter((entry) => entry.amount <= 0);
-    const missingToken = recipients.filter((entry) => !entry.token);
-    const validRecipients = recipients.filter(
-      (entry) => entry.address && entry.token && entry.amount > 0
-    );
-    const uniqueTokens = Array.from(
-      new Set(validRecipients.map((entry) => entry.token as SupportedToken))
-    );
+    setIsProcessingBatchPayment(true);
 
-    return {
-      recipients,
-      validRecipients,
-      missingAddress,
-      invalidAmounts,
-      missingToken,
-      batchToken: uniqueTokens.length === 1 ? uniqueTokens[0] : null,
-      hasMixedTokens: uniqueTokens.length > 1,
-    };
-  }, [batchPaymentTasks, availableUsers]);
+    try {
+      const tasksToUpdate = getSelectedTasksDetails();
 
-  const canExecuteBatchPayment =
-    canProcessBatchPayment &&
-    batchPaymentTasks.length > 0 &&
-    batchPaymentMeta.validRecipients.length === batchPaymentTasks.length &&
-    Boolean(batchPaymentMeta.batchToken);
-
-  const batchBlockingIssues = useMemo(() => {
-    const issues: string[] = [];
-    if (batchPaymentMeta.missingAddress.length) {
-      issues.push(
-        `${batchPaymentMeta.missingAddress.length} task(s) are missing assignee wallet addresses.`
+      // Update all tasks in parallel
+      await Promise.all(
+        tasksToUpdate.map((task) =>
+          updateTask(task.id, {
+            paid: true,
+            updatedAt: new Date().toISOString(),
+          })
+        )
       );
+
+      // Update local state
+      const updateTaskInList = (list: Task[]) =>
+        list.map((task) =>
+          selectedTasks.has(task.id) ? { ...task, paid: true } : task
+        );
+
+      setAllTasks(updateTaskInList(allTasks));
+      setCreatedTasks(updateTaskInList(createdTasks));
+      setAssignedTasks(updateTaskInList(assignedTasks));
+
+      // Update columns
+      updateColumnsBasedOnView();
+
+      // Clear selection
+      setSelectedTasks(new Set());
+      setIsSelectionMode(false);
+      setIsBatchPaymentOpen(false);
+
+      toast({
+        title: "Batch payment successful",
+        description: `Successfully paid ${tasksToUpdate.length} tasks`,
+      });
+    } catch (error) {
+      console.error("Batch payment error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to process batch payment",
+        variant: "destructive",
+      });
+    } finally {
+      setIsProcessingBatchPayment(false);
     }
-    if (batchPaymentMeta.invalidAmounts.length) {
-      issues.push(
-        `${batchPaymentMeta.invalidAmounts.length} task(s) have invalid reward amounts.`
-      );
-    }
-    if (batchPaymentMeta.missingToken.length) {
-      issues.push(
-        `${batchPaymentMeta.missingToken.length} task(s) use unsupported reward tokens.`
-      );
-    }
-    if (batchPaymentMeta.hasMixedTokens) {
-      issues.push("Selected tasks must all use the same stablecoin (USDC or USDT).");
-    }
-    return issues;
-  }, [batchPaymentMeta]);
+  };
 
   // Handle batch confirmation when multiple tasks are moved to Done
   const handleBatchConfirmation = async (confirmed: boolean) => {
     if (!confirmed || !pendingBatchMove) {
       setIsBatchConfirmationOpen(false);
       setPendingBatchMove(null);
-      setIsProcessingBatchMove(false);
       return;
     }
 
-    setIsProcessingBatchMove(true);
     try {
       // Find the tasks being moved
       const sourceColumn = columns.find(
@@ -2443,7 +2665,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
         payableTasksInBatch.length > 0 &&
         pendingBatchMove.destination === "done"
       ) {
-        openBatchPaymentDialog(payableTasksInBatch);
+        setIsBatchPaymentOpen(true);
         toast({
           title: "Batch Ready for Payment",
           description: `${payableTasksInBatch.length} task(s) moved to Done and ready for batch payment`,
@@ -2463,18 +2685,17 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
       });
       setIsBatchConfirmationOpen(false);
       setPendingBatchMove(null);
-    } finally {
-      setIsProcessingBatchMove(false);
     }
   };
 
   return (
     <div
-      className={`p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:bg-gray-900 dark:from-gray-900 dark:to-gray-800 rounded-2xl shadow-inner ${
-        isProjectView
+      className={
+        "p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:bg-gray-900 dark:from-gray-900 dark:to-gray-800 rounded-2xl shadow-inner " +
+        (isProjectView
           ? "flex flex-col gap-4 h-[calc(100vh-6rem)] lg:h-[calc(100vh-5rem)] min-h-0 overflow-hidden"
-          : "flex flex-col gap-4"
-      }`}
+          : "flex flex-col gap-4")
+      }
     >
       {/* Project Header - Show when viewing a project board */}
       {projectId && currentProject && isProjectMember && (
@@ -2623,6 +2844,11 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                 ))
               )}
             </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsManageContribOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
           </DialogContent>
         </Dialog>
       )}
@@ -2655,15 +2881,159 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                   Add Task
                 </Button>
               </DialogTrigger>
-            <DialogContent className="max-w-5xl max-h-[90vh] overflow-hidden flex flex-col p-0">
+            <DialogContent className="max-w-5xl h-[90vh] min-h-0 overflow-hidden flex flex-col p-0">
               <DialogHeader className="px-6 pt-6 pb-4 border-b">
                 <div className="flex items-center justify-between">
                   <DialogTitle>Create New Task</DialogTitle>
+                  <div className="flex items-center gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => setShowAnalysisPanel((v) => !v)}>
+                      {showAnalysisPanel ? "Hide Analysis" : "Show Analysis"}
+                    </Button>
+                  </div>
                 </div>
               </DialogHeader>
-              <div className="flex-1 overflow-hidden flex">
-                {/* Left Section - Task Content */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-4 border-r">
+              <ResizablePanelGroup direction="horizontal" className="flex-1 h-full min-h-0 overflow-hidden">
+                {showAnalysisPanel && userProjectRole === "admin" && (
+                  <ResizablePanel defaultSize={28} minSize={24} className="min-h-0 p-6">
+                    <div className="relative h-full min-h-0 overflow-y-auto overscroll-contain space-y-4">
+                       <ThreeBackground />
+                       <div className="text-xs font-semibold tracking-wide uppercase">Contributor Analysis</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {analysisTag ? `Tag: ${String(analysisTag)}` : "General performance"}
+                    </div>
+
+                    {/* Estimated Cost Card */}
+                    <div className="space-y-2 rounded-xl border shadow-sm backdrop-blur-sm bg-white/80 dark:bg-[#1e1e1e]/70 p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs font-semibold tracking-wide uppercase">Estimated Cost (USD)</div>
+                        <div className="flex items-center gap-2">
+                          <Label htmlFor="ai-estimator" className="text-[10px]">Use AI</Label>
+                          <Switch id="ai-estimator" checked={useAIEstimator} onCheckedChange={setUseAIEstimator} />
+                          <Badge variant="outline" className="text-[10px]">Real-time</Badge>
+                        </div>
+                      </div>
+                      {useAIEstimator ? (
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <div className="text-2xl font-bold">${aiEstimate ? aiEstimate.totalUSD.toLocaleString() : '0'}</div>
+                            {aiEstimating && <span className="text-[10px] text-muted-foreground">EstimatingΓÇª</span>}
+                          </div>
+                          {aiError ? (
+                            <div className="text-[11px] text-red-600">{aiError}</div>
+                          ) : (
+                            <div className="text-[11px] text-muted-foreground">Est. Hours: {aiEstimate?.estimatedHours ?? 0} @ ${aiEstimate?.baseRateUSD ?? 50}/hr</div>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="text-2xl font-bold">${typeof costEstimate?.totalUSD === 'number' ? costEstimate.totalUSD.toLocaleString() : '0'}</div>
+                          <div className="text-[11px] text-muted-foreground">Est. Hours: {costEstimate?.estimatedHours ?? 0} @ ${costEstimate?.baseRateUSD ?? 50}/hr</div>
+                          <div className="mt-2 grid grid-cols-2 gap-2 text-[11px]">
+                            <div className="rounded-md border p-2 bg-white/60 dark:bg-[#2a2a2a]">
+                              <div className="font-medium">Length</div>
+                              <div className="text-muted-foreground">{costEstimate?.breakdown.lengthHours ?? 0}h</div>
+                            </div>
+                            <div className="rounded-md border p-2 bg-white/60 dark:bg-[#2a2a2a]">
+                              <div className="font-medium">Title</div>
+                              <div className="text-muted-foreground">+{costEstimate?.breakdown.titleHoursAdj ?? 0}h</div>
+                            </div>
+                            <div className="rounded-md border p-2 bg-white/60 dark:bg-[#2a2a2a]">
+                              <div className="font-medium">Description</div>
+                              <div className="text-muted-foreground">+{costEstimate?.breakdown.descriptionHoursAdj ?? 0}h</div>
+                            </div>
+                            <div className="rounded-md border p-2 bg-white/60 dark:bg-[#2a2a2a]">
+                              <div className="font-medium">Tags</div>
+                              <div className="text-muted-foreground">x{costEstimate?.breakdown.tagMultiplier ?? 1}</div>
+                            </div>
+                            <div className="rounded-md border p-2 bg-white/60 dark:bg-[#2a2a2a]">
+                              <div className="font-medium">Priority</div>
+                              <div className="text-muted-foreground">x{costEstimate?.breakdown.priorityMultiplier ?? 1}</div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {!!contributorStats.length ? (
+                      <div className="space-y-3">
+                        {contributorStats.slice(0, 4).map((s, idx) => {
+                          const name = s.user.displayName || s.user.username || "Unknown";
+                          const total = analysisTag ? (s.tagTotal || 0) : (s.totalAssigned || 0);
+                          const completed = analysisTag ? (s.tagCompleted || 0) : (s.tasksCompleted || 0);
+                          const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+                          const radius = 16;
+                          const circumference = 2 * Math.PI * radius;
+                          const dashOffset = circumference - (percent / 100) * circumference;
+                          return (
+                            <div key={s.user.id || idx} className="space-y-3 rounded-xl border shadow-sm backdrop-blur-sm bg-white/80 dark:bg-[#1e1e1e]/70 overflow-hidden p-3 md:p-4">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-8 w-8">
+                                  <AvatarImage src={s.user.profilePicture || undefined} />
+                                  <AvatarFallback>{name.slice(0,1).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <div className="text-xs font-medium">{name}</div>
+                                  {s.user.specialties?.length ? (
+                                    <div className="text-[10px] text-muted-foreground truncate max-w-[220px]">
+                                      {s.user.specialties.join(", ")}
+                                    </div>
+                                  ) : null}
+                                </div>
+                              </div>
+
+                              <div className="space-y-2">
+                                <div className="flex items-center gap-3">
+                                  <div className="relative h-10 w-10 shrink-0">
+                                    <svg className="h-10 w-10 -rotate-90" viewBox="0 0 40 40">
+                                      <circle cx="20" cy="20" r={radius} stroke="currentColor" strokeWidth="4" className="text-muted-foreground/20 fill-none" />
+                                      <circle cx="20" cy="20" r={radius} stroke="currentColor" strokeWidth="4" strokeDasharray={circumference} strokeDashoffset={dashOffset} className="text-purple-600 transition-all duration-500 ease-out fill-none" />
+                                    </svg>
+                                    <div className="absolute inset-0 flex items-center justify-center">
+                                      <span className="text-[10px]">{percent}%</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <Progress value={percent} className="h-2" />
+                                    <div className="mt-1 text-[10px] text-muted-foreground truncate">{completed}/{total} completed</div>
+                                  </div>
+                                </div>
+
+                                <div>
+                                  {s.isMember ? (
+                                    <Button size="sm" className="h-7 px-2 text-xs" title={newTask.isOpenBounty ? "Assign disabled when Open Bounty is enabled" : "Assign to this contributor"} disabled={newTask.isOpenBounty} onClick={() => setNewTask({ ...newTask, assigneeId: s.user.id })}>
+                                      Assign
+                                    </Button>
+                                  ) : (
+                                    <Button size="sm" variant="secondary" className="h-7 px-2 text-xs" onClick={async () => {
+                                      try {
+                                        if (!currentProject || !s.user.address || !account) return;
+                                        await inviteUserToProject(currentProject.id, s.user.id, account, currentProject.title);
+                                        toast({ title: "Invitation sent" });
+                                      } catch (e) {
+                                        toast({ title: "Failed to send invite", variant: "destructive" });
+                                      }
+                                    }}>
+                                      Invite
+                                    </Button>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="text-[11px] text-muted-foreground">No contributor data yet.</div>
+                    )}
+                    </div>
+                  </ResizablePanel>
+                )}
+
+                <ResizableHandle withHandle className="w-8 bg-transparent after:hidden" />
+
+                {/* Task Form Panel */}
+                <ResizablePanel defaultSize={52} minSize={42} className="min-h-0 p-6">
+                   <div className="h-full min-h-0 overflow-y-auto overscroll-contain space-y-4">
 
                   {/* Task Name */}
                   <div className="space-y-2">
@@ -2739,8 +3109,15 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                     />
                   </div>
 
+                  {/* Analysis moved to left panel */}
+
                   {/* Create Button */}
                   <div className="pt-4">
+                    {userProjectRole === "admin" && (
+                      <div className="mb-2 text-xs text-muted-foreground">
+                        Estimated Cost: ${useAIEstimator && aiEstimate ? aiEstimate.totalUSD.toLocaleString() : (typeof costEstimate?.totalUSD === 'number' ? costEstimate.totalUSD.toLocaleString() : '0')}
+                      </div>
+                    )}
                     <Button
                       onClick={handleCreateTask}
                       disabled={isLoading}
@@ -2749,10 +3126,15 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                       {isLoading ? "Creating..." : "Create"}
                     </Button>
                   </div>
-                </div>
+                  </div>
+                </ResizablePanel>
 
-                {/* Right Section - Metadata Sidebar */}
-                <div className="w-80 border-l bg-muted/30 overflow-y-auto p-6 space-y-6">
+                {/* Handle between task form and sidebar */}
+                <ResizableHandle withHandle className="w-6 bg-transparent after:hidden" />
+
+                {/* Metadata Sidebar Panel */}
+                <ResizablePanel defaultSize={20} minSize={18} className="min-h-0 border-l bg-muted/30 p-6">
+                   <div className="h-full min-h-0 overflow-y-auto overscroll-contain space-y-6">
                   {/* Status */}
                   <StatusSelect
                     value={newTask.status}
@@ -2778,6 +3160,15 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                     onValueChange={(value) => setNewTask({ ...newTask, priority: value })}
                   />
 
+                  {/* Tags */}
+                  <TagsSelect
+                    selected={newTask.tags || []}
+                    onChange={(tags) => setNewTask({ ...newTask, tags })}
+                    label="TAGS"
+                    options={specialtyOptions}
+                  />
+
+
                   {/* Task Points */}
                   <TaskPointsInput />
 
@@ -2802,8 +3193,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                       label="BOUNTY"
                     />
                   )}
-                </div>
-              </div>
+                  </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
             </DialogContent>
           </Dialog>
           )}
@@ -2861,6 +3253,46 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <HelpCircle className="h-4 w-4" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80">
+                <div className="space-y-2">
+                  <h4 className="font-medium">Keyboard Shortcuts</h4>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        Toggle Selection
+                      </span>
+                      <kbd className="px-2 py-1 bg-muted rounded">
+                        Ctrl+Shift+S
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        Process Payment
+                      </span>
+                      <kbd className="px-2 py-1 bg-muted rounded">
+                        Ctrl+Shift+P
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Undo</span>
+                      <kbd className="px-2 py-1 bg-muted rounded">Ctrl+Z</kbd>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">
+                        Cancel Selection
+                      </span>
+                      <kbd className="px-2 py-1 bg-muted rounded">Esc</kbd>
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </div>
@@ -2902,77 +3334,42 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
               isProjectView ? "h-full min-h-0" : ""
             }`}
           >
-            {columns.map((column) => {
-              const isStandardColumn = ["todo", "inprogress", "review"].includes(column.id);
-              const columnSelectionActive = isStandardColumn
-                ? isSelectionActiveFor(column.id)
-                : false;
-              const isUnpaidSelectionActive =
-                column.id === "done" ? isSelectionActiveFor("done", "unpaid") : false;
-              const showSelectAllButton = column.id === "done" && isUnpaidSelectionActive;
-
-              return (
-                <div
-                  key={column.id}
-                  className={`kanban-column kanban-column-todo bg-white/80 dark:bg-[#1e1e1e] rounded-lg p-4 shadow-md flex flex-col ${
-                    isProjectView ? "h-full min-h-0" : ""
-                  }`}
-                >
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {column.icon}
-                      <h2 className="font-semibold">
-                        {column.title} ({column.count})
-                      </h2>
-                    </div>
-
-                    {(isStandardColumn || showSelectAllButton) && (
-                      <div className="flex items-center gap-2">
-                        {isStandardColumn && (
-                          <button
-                            type="button"
-                            aria-pressed={columnSelectionActive}
-                            onClick={() => toggleColumnSelectionMode(column.id)}
-                            className={`h-7 w-7 rounded-full border flex items-center justify-center transition text-muted-foreground ${
-                              columnSelectionActive
-                                ? "border-purple-500 text-purple-600 bg-purple-50 dark:bg-purple-500/20"
-                                : "border-muted-foreground/30 hover:border-purple-400 hover:text-purple-500"
-                            }`}
-                            title={
-                              columnSelectionActive
-                                ? "Disable multi-select for this column"
-                                : "Enable multi-select for this column"
-                            }
-                          >
-                            {columnSelectionActive ? (
-                              <CheckSquare className="h-4 w-4" />
-                            ) : (
-                              <Square className="h-4 w-4" />
-                            )}
-                          </button>
-                        )}
-                        {showSelectAllButton && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => selectAllInColumn(column.id, "unpaid")}
-                            className="text-xs h-7 px-2"
-                          >
-                            Select All
-                          </Button>
-                        )}
-                      </div>
-                    )}
+            {columns.map((column) => (
+              <div
+                key={column.id}
+                className={`kanban-column kanban-column-todo bg-white/80 dark:bg-[#1e1e1e] rounded-lg p-4 shadow-md flex flex-col ${
+                  isProjectView ? "h-full min-h-0" : ""
+                }`}
+              >
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    {column.icon}
+                    <h2 className="font-semibold">
+                      {column.title} ({column.count})
+                    </h2>
                   </div>
 
-                  <Droppable droppableId={column.id}>
-                    {(provided) => (
-                      <div
-                        {...provided.droppableProps}
-                        ref={provided.innerRef}
-                        className="flex-1 overflow-y-auto overflow-x-hidden space-y-3 pr-2 -mr-2"
-                        style={{ minHeight: 0 }}
-                      >
+                  {/* Add Select All button for Done column */}
+                  {isSelectionMode && column.id === "done" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => selectAllInColumn(column.id)}
+                      className="text-xs h-7 px-2"
+                    >
+                      Select All
+                    </Button>
+                  )}
+                </div>
+
+                <Droppable droppableId={column.id}>
+                  {(provided) => (
+                    <div
+                      {...provided.droppableProps}
+                      ref={provided.innerRef}
+                      className="flex-1 overflow-y-auto overflow-x-hidden space-y-3 pr-2 -mr-2"
+                      style={{ minHeight: 0 }}
+                    >
                       {/* Render grouped tasks for Done column, regular tasks for others */}
                       {column.id === "done" ? (
                         (() => {
@@ -3002,34 +3399,11 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                               {/* Unpaid Tasks Group */}
                               {unpaid.length > 0 && (
                                 <div className="space-y-3">
-                                  <div className="sticky top-0 z-10 flex items-center justify-between gap-2 px-2 py-2 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 rounded-lg border-l-4 border-amber-500 dark:border-amber-400">
-                                    <div className="flex items-center gap-2">
-                                      <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-                                      <h3 className="font-semibold text-sm text-amber-900 dark:text-amber-300">
-                                        Unpaid ({unpaid.length})
-                                      </h3>
-                                    </div>
-                                    <button
-                                      type="button"
-                                      aria-pressed={isUnpaidSelectionActive}
-                                      onClick={() => toggleColumnSelectionMode("done", "unpaid")}
-                                      className={`h-7 w-7 rounded-full border flex items-center justify-center transition text-amber-700 dark:text-amber-200 ${
-                                        isUnpaidSelectionActive
-                                          ? "border-purple-500 text-purple-600 bg-purple-50 dark:bg-purple-500/20"
-                                          : "border-amber-300/70 hover:border-purple-400 hover:text-purple-500"
-                                      }`}
-                                      title={
-                                        isUnpaidSelectionActive
-                                          ? "Disable multi-select for unpaid tasks"
-                                          : "Enable multi-select for unpaid tasks"
-                                      }
-                                    >
-                                      {isUnpaidSelectionActive ? (
-                                        <CheckSquare className="h-4 w-4" />
-                                      ) : (
-                                        <Square className="h-4 w-4" />
-                                      )}
-                                    </button>
+                                  <div className="sticky top-0 z-10 flex items-center gap-2 px-2 py-2 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/30 dark:to-orange-900/30 rounded-lg border-l-4 border-amber-500 dark:border-amber-400">
+                                    <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                                    <h3 className="font-semibold text-sm text-amber-900 dark:text-amber-300">
+                                      Unpaid ({unpaid.length})
+                                    </h3>
                                   </div>
                                   <div className="space-y-3">
                                     {unpaid.map((task, index) => {
@@ -3044,14 +3418,14 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                                           {(provided, snapshot) => (
                                             <TaskCard
                                               task={task}
-                                              isSelectionMode={isUnpaidSelectionActive}
+                                              isSelectionMode={isSelectionMode}
                                               isSelected={selectedTasks.has(task.id)}
                                               selectedCount={selectedTasks.size}
                                               currentUserId={currentUserId}
                                               account={account}
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                if (isUnpaidSelectionActive) {
+                                                if (isSelectionMode) {
                                                   toggleTaskSelection(task.id, task);
                                                 } else {
                                                   handleTaskClick(task);
@@ -3091,14 +3465,18 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                                           {(provided, snapshot) => (
                                             <TaskCard
                                               task={task}
-                                              isSelectionMode={false}
+                                              isSelectionMode={isSelectionMode}
                                               isSelected={selectedTasks.has(task.id)}
                                               selectedCount={selectedTasks.size}
                                               currentUserId={currentUserId}
                                               account={account}
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleTaskClick(task);
+                                                if (isSelectionMode) {
+                                                  toggleTaskSelection(task.id, task);
+                                                } else {
+                                                  handleTaskClick(task);
+                                                }
                                               }}
                                               isDragging={snapshot.isDragging}
                                               provided={provided}
@@ -3146,14 +3524,14 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                             {(provided, snapshot) => (
                               <TaskCard
                                 task={task}
-                                isSelectionMode={columnSelectionActive}
+                                isSelectionMode={isSelectionMode}
                                 isSelected={selectedTasks.has(task.id)}
                                 selectedCount={selectedTasks.size}
                                 currentUserId={currentUserId}
                                 account={account}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  if (columnSelectionActive) {
+                                  if (isSelectionMode) {
                                     toggleTaskSelection(task.id, task);
                                   } else {
                                     handleTaskClick(task);
@@ -3172,8 +3550,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                   )}
                 </Droppable>
               </div>
-            );
-          })}
+            ))}
           </div>
         </DragDropContext>
       )}
@@ -3181,12 +3558,12 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
 
       {/* Task Detail Dialog */}
       <Dialog open={isTaskDetailOpen} onOpenChange={setIsTaskDetailOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="w-[95vw] sm:max-w-[600px] md:max-w-[720px] lg:max-w-[800px] max-h-[85vh] overflow-y-auto">
           {selectedTask && (
             <>
               <DialogHeader>
                 <div className="flex justify-between items-center">
-                  <DialogTitle>
+                  <DialogTitle className="break-words">
                     {isEditMode ? "Edit Task" : selectedTask.title}
                   </DialogTitle>
                   {selectedTask.userId === account && !isEditMode && (
@@ -3214,7 +3591,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                 </div>
                 {!isEditMode && (
                   <>
-                    <DialogDescription>Task details</DialogDescription>
+                    <DialogDescription className="break-words">Task details</DialogDescription>
                     <div className="flex gap-2 mt-2">
                       <Badge
                         variant="outline"
@@ -3416,6 +3793,14 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                     />
                   </div>
                 </div>
+                    <div className="grid gap-2">
+                      <TagsSelect
+                        label="TAGS"
+                        selected={editedTask.tags || []}
+                        onChange={(tags) => setEditedTask({ ...editedTask, tags })}
+                        options={specialtyOptions}
+                      />
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -3776,7 +4161,12 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                               </Button>
                             </>
                           )}
-                          
+                          <Button
+                            variant="outline"
+                            onClick={() => setIsTaskDetailOpen(false)}
+                          >
+                            Close
+                          </Button>
                         </div>
                       </div>
                     );
@@ -3826,6 +4216,43 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
         </DialogContent>
       </Dialog>
 
+      {/* Payment Dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Pay for Task</DialogTitle>
+            <DialogDescription>
+              You are about to pay {taskBeingPaid?.rewardAmount}{" "}
+              {taskBeingPaid?.reward} for this task.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <p>Are you sure you want to proceed?</p>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsPaymentDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePayTask}
+              disabled={isProcessingPayment}
+              className="gradient-button"
+            >
+              {isProcessingPayment ? (
+                <>
+                  Processing Payment...
+                  <Loader2 className="ml-2 h-4 w-4 animate-spin" />
+                </>
+              ) : (
+                "Pay Now"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       <Dialog
         open={isProposalDialogOpen}
         onOpenChange={handleProposalDialogChange}
@@ -3893,7 +4320,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
               </Button>
               {canProcessBatchPayment && (
                 <Button
-                  onClick={() => openBatchPaymentDialog(getSelectedTasksDetails())}
+                  onClick={() => setIsBatchPaymentOpen(true)}
                   className="gradient-button"
                 >
                   Process Payment
@@ -4004,16 +4431,16 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
             <Button
               variant="outline"
               onClick={() => handleBatchConfirmation(false)}
-              disabled={isProcessingBatchMove}
+              disabled={isProcessingBatchPayment}
             >
               Cancel
             </Button>
             <Button
               onClick={() => handleBatchConfirmation(true)}
-              disabled={isProcessingBatchMove}
+              disabled={isProcessingBatchPayment}
               className="bg-green-600 hover:bg-green-700"
             >
-              {isProcessingBatchMove ? (
+              {isProcessingBatchPayment ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Processing...
@@ -4030,21 +4457,13 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
       </Dialog>
 
       {/* Batch Payment Dialog */}
-      <Dialog
-        open={isBatchPaymentOpen}
-        onOpenChange={(open) => {
-          setIsBatchPaymentOpen(open);
-          if (!open) {
-            setBatchPaymentTasks([]);
-          }
-        }}
-      >
+      <Dialog open={isBatchPaymentOpen} onOpenChange={setIsBatchPaymentOpen}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Batch Payment</DialogTitle>
             <DialogDescription>
-              Review and process payments for {batchPaymentTasks.length} task
-              {batchPaymentTasks.length === 1 ? "" : "s"}
+              Review and process payments for {selectedTasks.size} selected
+              tasks
             </DialogDescription>
           </DialogHeader>
 
@@ -4065,7 +4484,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                 Payment Summary
               </h3>
               <div className="space-y-2">
-                {Object.entries(calculateTotalPayment(batchPaymentTasks)).map(
+                {Object.entries(calculateTotalPayment()).map(
                   ([token, amount]) => (
                     <div
                       key={token}
@@ -4087,7 +4506,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
             <div>
               <h3 className="font-medium mb-3">Selected Tasks</h3>
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {batchPaymentTasks.map((task) => (
+                {getSelectedTasksDetails().map((task) => (
                   <div
                     key={task.id}
                     className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
@@ -4127,72 +4546,51 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
               </div>
             </div>
 
+            {/* Warning Message */}
             <div className="flex items-start gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
               <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-500 flex-shrink-0 mt-0.5" />
               <div className="text-sm text-amber-800 dark:text-amber-200">
                 <p className="font-medium">Please confirm</p>
                 <p className="mt-1">
-                  This action will process {batchPaymentTasks.length} payment
-                  {batchPaymentTasks.length === 1 ? "" : "s"}. Confirm that you
-                  have enough balance and gas on Sepolia.
+                  This action will process {getSelectedTasksDetails().length}{" "}
+                  payments. Make sure you have sufficient funds in your wallet.
                 </p>
               </div>
             </div>
-
-            {batchBlockingIssues.length > 0 && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-900/20 dark:text-red-200">
-                <p className="font-medium">Resolve before paying</p>
-                <ul className="mt-2 list-disc space-y-1 pl-5">
-                  {batchBlockingIssues.map((issue) => (
-                    <li key={issue}>{issue}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {canExecuteBatchPayment && (
-              <PaymentComponent
-                key={`batch-${batchPaymentTasks.length}-${batchPaymentMeta.batchToken}`}
-                mode="batch"
-                assignees={batchPaymentMeta.validRecipients.map(
-                  ({ address, amount }) => ({
-                    address: address as string,
-                    amount,
-                  })
-                )}
-                defaultToken={batchPaymentMeta.batchToken ?? undefined}
-                tokenOptions={
-                  batchPaymentMeta.batchToken
-                    ? [batchPaymentMeta.batchToken]
-                    : undefined
-                }
-                onSuccess={async () => {
-                  const paidTaskIds = batchPaymentMeta.validRecipients.map(
-                    ({ task }) => task.id
-                  );
-                  await handleBatchPaymentSuccess(paidTaskIds);
-                }}
-                onError={(error) => {
-                  console.error("Batch payout failed:", error);
-                }}
-              />
-            )}
-            {!canExecuteBatchPayment && batchPaymentTasks.length > 0 && (
-              <div className="text-sm text-muted-foreground">
-                Payments will be enabled once all tasks have a wallet, reward,
-                and supported token.
-              </div>
-            )}
           </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsBatchPaymentOpen(false)}
+              disabled={isProcessingBatchPayment}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={processBatchPayment}
+              disabled={isProcessingBatchPayment || !canProcessBatchPayment}
+              className="gradient-button gap-2"
+            >
+              {isProcessingBatchPayment ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <CreditCard className="h-4 w-4" />
+                  Process Payment
+                </>
+              )}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
       <PaymentPopup
         isOpen={isPaymentPopupOpen}
-        onClose={() => {
-          setIsPaymentPopupOpen(false);
-          setTaskToPay(null);
-        }}
+        onClose={() => setIsPaymentPopupOpen(false)}
         task={taskToPay}
         onPaymentComplete={handlePaymentComplete}
       />

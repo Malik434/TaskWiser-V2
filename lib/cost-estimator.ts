@@ -102,9 +102,17 @@ function hoursFromLength(description: string): number {
 function titleHoursAdj(title: string): number {
   const t = (title || "").toLowerCase();
   let adj = 0;
+
+  // Baseline based on title length to ensure some contribution even without keywords
+  const words = countWords(title || "");
+  if (words >= 6) adj += 1.0; // longer, likely more involved
+  else if (words >= 3) adj += 0.5; // moderately descriptive
+
+  // Keyword-based adjustments for known complexity indicators
   for (const key of Object.keys(TITLE_KEYWORD_HOURS)) {
     if (t.includes(key)) adj += TITLE_KEYWORD_HOURS[key];
   }
+
   return adj;
 }
 

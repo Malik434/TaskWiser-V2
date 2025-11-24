@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import OpenAI from "openai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { estimateTaskCostUSD, type CostEstimate } from "@/lib/cost-estimator";
 
 // Helpers moved to module scope so both try/catch blocks can use them
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     // Helpers defined at module scope
 
     // Fallback to heuristic if API key missing
-    if (!process.env.OPENAI_API_KEY) {
+    if (!process.env.GOOGLE_API_KEY && !process.env.GEMINI_API_KEY) {
       const rate = computeSuggestedBaseRate(Array.isArray(tags) ? tags : [], priority, title, description, baseline.estimatedHours);
       const hours = baseline.estimatedHours;
       const totalUSD = Math.max(0, Math.round(hours * rate));
@@ -84,23 +84,64 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ source: "heuristic", estimate }, { status: 200 });
     }
 
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
+    const genAI = new GoogleGenerativeAI(apiKey!);
 
-    const system = `You are a seasoned engineering project estimator. Given a task title, description, tags, and priority, produce an unbiased estimate that VARIES with task complexity and skills required.\n\nOutput STRICT JSON (no prose) that matches this schema:\n{\n  "totalUSD": number,\n  "estimatedHours": number,\n  "baseRateUSD": number,\n  "breakdown": {\n    "lengthHours": number,\n    "titleKeywordHours": number,\n    "descriptionKeywordHours": number,\n    "tagsMultiplier": number,\n    "priorityMultiplier": number\n  },\n  "notes": string\n}\n\nGuidance to ensure dynamic estimates:\n- Derive hours from complexity signals: specificity, number of steps/requirements, integrations, unknowns, and risk.\n- Select baseRateUSD based on skills indicated by tags/keywords and urgency. Use ranges: \n  • Blockchain/Solidity/Security/Cryptography: 90–140\n  • AI/ML/Large Models/Data Science: 80–130\n  • Backend/API/Infrastructure: 60–100\n  • Frontend/UI/React/Design Systems: 50–85\n  • DevOps/Cloud/CI/CD: 60–100\n  • QA/Testing: 40–60\n  • Documentation/Research: 35–55\n- Adjust for priority: multiply hours by 1.0 (normal), 1.15 (high), 1.35 (urgent) and increase baseRateUSD by 0% (normal), +10% (high), +25% (urgent).\n- Reflect tags with a multiplier for complexity (e.g., security or blockchain tasks tend to have higher multipliers).\n- Avoid extremes but do NOT return constant values; vary with inputs.\n- Always return plausible values > 0.\n`;
+    const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash-exp";
+    const model = genAI.getGenerativeModel({ model: modelName });
 
-    const user = `Task details:\nTitle: ${title}\nDescription: ${description}\nTags: ${Array.isArray(tags) ? tags.join(", ") : ""}\nPriority: ${priority ?? "normal"}\n\nBaseline heuristic (for guidance only, feel free to refine): ${JSON.stringify(baseline)}\n\nReturn JSON only.`;
+    const prompt = `You are a seasoned engineering project estimator. Given a task title, description, tags, and priority, produce an unbiased estimate that VARIES with task complexity and skills required.
 
-    const completion = await openai.chat.completions.create({
-      model: process.env.OPENAI_MODEL || "gpt-4o-mini",
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-      temperature: 0.1,
-      response_format: { type: "json_object" },
+Output STRICT JSON (no prose) that matches this schema:
+{
+  "totalUSD": number,
+  "estimatedHours": number,
+  "baseRateUSD": number,
+  "breakdown": {
+    "lengthHours": number,
+    "titleKeywordHours": number,
+    "descriptionKeywordHours": number,
+    "tagsMultiplier": number,
+    "priorityMultiplier": number
+  },
+  "notes": string
+}
+
+Guidance to ensure dynamic estimates:
+- Derive hours from complexity signals: specificity, number of steps/requirements, integrations, unknowns, and risk.
+- Select baseRateUSD based on skills indicated by tags/keywords and urgency. Use ranges: 
+  • Blockchain/Solidity/Security/Cryptography: 90–140
+  • AI/ML/Large Models/Data Science: 80–130
+  • Backend/API/Infrastructure: 60–100
+  • Frontend/UI/React/Design Systems: 50–85
+  • DevOps/Cloud/CI/CD: 60–100
+  • QA/Testing: 40–60
+  • Documentation/Research: 35–55
+- Adjust for priority: multiply hours by 1.0 (normal), 1.15 (high), 1.35 (urgent) and increase baseRateUSD by 0% (normal), +10% (high), +25% (urgent).
+- Reflect tags with a multiplier for complexity (e.g., security or blockchain tasks tend to have higher multipliers).
+- Avoid extremes but do NOT return constant values; vary with inputs.
+- Always return plausible values > 0.
+
+Task details:
+Title: ${title}
+Description: ${description}
+Tags: ${Array.isArray(tags) ? tags.join(", ") : ""}
+Priority: ${priority ?? "normal"}
+
+Baseline heuristic (for guidance only, feel free to refine): ${JSON.stringify(baseline)}
+
+Return JSON only.`;
+
+    const result = await model.generateContent({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        temperature: 0.1,
+        responseMimeType: "application/json",
+      },
     });
 
-    const content = completion.choices?.[0]?.message?.content ?? "";
+    const response = await result.response;
+    const content = response.text();
 
     let parsed: any;
     try {
@@ -154,10 +195,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ source: "ai", estimate, notes: parsed.notes ?? "" }, { status: 200 });
   } catch (err) {
-    // Log full OpenAI error so we can diagnose precisely
+    // Log full Gemini error so we can diagnose precisely
     const errorMsg = (err as any)?.message ?? String(err);
     const errorStack = (err as any)?.stack ?? undefined;
-    console.error("openai_error", { message: errorMsg, stack: errorStack });
+    console.error("gemini_error", { message: errorMsg, stack: errorStack });
 
     try {
       const { title = "", description = "", tags = [], priority = "normal" } = body || {};

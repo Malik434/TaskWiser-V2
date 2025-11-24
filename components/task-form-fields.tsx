@@ -1,9 +1,16 @@
 "use client";
 
+import * as React from "react";
+
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { HelpCircle, Tag } from "lucide-react";
+import { HelpCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface StatusSelectProps {
   value: string;
@@ -120,16 +127,87 @@ export function TaskPointsInput() {
   );
 }
 
-export function TagsInput() {
+interface TagsSelectProps {
+  selected: string[];
+  onChange: (tags: string[]) => void;
+  label?: string;
+  placeholder?: string;
+  options?: string[]; // optional predefined options (e.g., specialties)
+}
+
+export function TagsSelect({
+  selected,
+  onChange,
+  label = "TAGS",
+  placeholder = "Select tags...",
+  options = [],
+}: TagsSelectProps) {
+  // Freeform input disabled; only predefined options allowed
+
+  function removeTag(tag: string) {
+    onChange(selected.filter((s) => s !== tag));
+  }
+
+  function toggleOption(opt: string) {
+    const next = new Set<string>(selected);
+    if (next.has(opt)) {
+      next.delete(opt);
+    } else {
+      next.add(opt);
+    }
+    onChange(Array.from(next));
+  }
+
   return (
     <div className="space-y-2">
       <Label className="text-xs font-semibold uppercase text-muted-foreground">
-        TAGS
+        {label}
       </Label>
-      <div className="relative">
-        <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Select tags..." className="pl-9" />
+
+      {/* Selected chips */}
+      <div className="flex items-center gap-2 flex-wrap">
+        {selected.map((tag) => (
+          <Badge key={tag} variant="secondary" className="flex items-center gap-1">
+            <span>{tag}</span>
+            <button
+              type="button"
+              onClick={() => removeTag(tag)}
+              className="ml-1 inline-flex items-center justify-center rounded-full w-4 h-4 text-[10px] bg-muted-foreground/20 hover:bg-muted-foreground/30"
+            >
+              ×
+            </button>
+          </Badge>
+        ))}
       </div>
+
+      {/* Dropdown multi-select */}
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" size="sm" className="justify-between w-full sm:w-auto">
+            {placeholder}
+            <span className="ml-2 text-xs text-muted-foreground">{selected.length} selected</span>
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-64 p-2">
+          {options && options.length > 0 ? (
+            <ScrollArea className="h-48">
+              <div className="space-y-2">
+                {options.map((opt) => {
+                  const checked = selected.includes(opt);
+                  return (
+                    <label key={opt} className="flex items-center gap-2 text-sm">
+                      <Checkbox checked={checked} onCheckedChange={() => toggleOption(opt)} />
+                      <span className="truncate">{opt}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </ScrollArea>
+          ) : (
+            <p className="text-xs text-muted-foreground">No tags configured. Ask admin to add options.</p>
+          )}
+        </PopoverContent>
+      </Popover>
     </div>
   );
 }

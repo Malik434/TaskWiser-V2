@@ -24,7 +24,7 @@ import { UserSearchSelect } from "@/components/user-search-select";
 export default function ProjectsPage() {
   const router = useRouter();
   const { isConnected, account } = useWeb3();
-  const { addProject, getProjects, updateProject, getUserProfiles, getUserProfile, deleteProject, inviteUserToProject, getProjectInvitationsForUser, respondToProjectInvitation, uploadProjectLogo } = useFirebase();
+  const { user, addProject, getProjects, updateProject, getUserProfiles, getUserProfile, deleteProject, inviteUserToProject, getProjectInvitationsForUser, respondToProjectInvitation, uploadProjectLogo } = useFirebase();
   const { toast } = useToast();
   const [isClient, setIsClient] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -125,6 +125,15 @@ export default function ProjectsPage() {
         return;
       }
 
+      if (!user?.uid) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in before creating a project.",
+          variant: "destructive",
+        });
+        return;
+      }
+
       let logoUrl: string | undefined = undefined;
       if (newProjectLogoFile) {
         try {
@@ -141,6 +150,7 @@ export default function ProjectsPage() {
       const projectToAdd = {
         ...newProject,
         createdBy: account || "",
+        createdByUid: user.uid,
         createdAt: new Date().toISOString(),
         logoUrl,
       } as Project;
@@ -151,6 +161,7 @@ export default function ProjectsPage() {
         description: "",
         status: "active",
         createdBy: account || "",
+        createdByUid: user?.uid || "",
       });
       setNewProjectLogoFile(null);
       setNewProjectLogoPreview(null);
@@ -326,6 +337,7 @@ export default function ProjectsPage() {
 
       const newMember: ProjectMember = {
         userId: userProfile.id,
+        userUid: userProfile.ownerUid,
         role: "contributor",
         joinedAt: new Date().toISOString(),
         isActive: true,

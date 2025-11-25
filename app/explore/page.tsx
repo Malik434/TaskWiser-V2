@@ -36,11 +36,13 @@ export default function DashboardPage() {
     <div className="flex h-screen dark-container">
       <Sidebar />
       <div className="flex-1 overflow-auto">
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-6 dark-header">
-          <h1 className="text-xl font-bold">Task Wiser</h1>
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-4 dark-header sm:h-16 sm:px-6">
+          <h1 className="text-lg font-bold md:ml-0 ml-12 sm:text-xl">Task Wiser</h1>
+          <div className="flex items-center gap-2 sm:gap-4">
             <ThemeToggle />
-            <WalletConnect />
+            <div className="hidden sm:block">
+              <WalletConnect />
+            </div>
           </div>
         </header>
         <main className="container mx-auto max-w-5xl py-6 px-4 animate-in fade-in duration-500 bg-white/50 dark:bg-gray-800/30 rounded-lg shadow-sm dark:shadow-lg dark:shadow-black/10 mt-4">

@@ -244,12 +244,12 @@ export function WalletConnect() {
       <div>
         {isConnected && account ? (
           <div className="flex items-center gap-2">
-            <div className="rounded-full bg-primary/20 px-3 py-1 text-sm text-primary">
+            <div className="hidden rounded-full bg-primary/20 px-2 py-1 text-xs text-primary sm:block sm:px-3 sm:text-sm">
               {userProfile?.username ||
                 cachedProfileUsername ||
                 shortenAddress(account)}
             </div>
-            <Button variant="outline" size="sm" onClick={handleDisconnect}>
+            <Button variant="outline" size="sm" onClick={handleDisconnect} className="text-xs sm:text-sm">
               Disconnect
             </Button>
           </div>
@@ -257,19 +257,21 @@ export function WalletConnect() {
           <Button
             onClick={handleConnect}
             disabled={isConnecting || isCheckingProfile}
-            className="gap-2"
-            size={isLandingPage ? "lg" : "default"}
+            className="gap-1.5 text-xs sm:gap-2 sm:text-sm"
+            size={isLandingPage ? "lg" : "sm"}
             variant={isLandingPage ? "default" : "default"}
           >
             {isConnecting || isCheckingProfile ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                {isConnecting ? "Connecting..." : "Checking..."}
+                <Loader2 className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">{isConnecting ? "Connecting..." : "Checking..."}</span>
+                <span className="sm:hidden">...</span>
               </>
             ) : (
               <>
-                <Wallet className="h-4 w-4" />
-                Connect Wallet
+                <Wallet className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <span className="hidden sm:inline">Connect Wallet</span>
+                <span className="sm:hidden">Connect</span>
               </>
             )}
           </Button>

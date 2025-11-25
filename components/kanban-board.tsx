@@ -47,6 +47,7 @@ import {
   X,
   ChevronUp,
   Tag,
+  ChevronDown,
 } from "lucide-react";
 import {
   Dialog,
@@ -78,6 +79,7 @@ import {
 import type { Task, TaskProposal, UserProfile, Project } from "@/lib/types";
 import { format } from "date-fns";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 import { PaymentPopup } from "./payment-popup";
 import { PaymentComponent, type SupportedToken } from "./payment-component";
 import { Switch } from "@/components/ui/switch";
@@ -272,6 +274,23 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   const [pendingJoinRequests, setPendingJoinRequests] = useState<any[]>([]);
   const [isLoadingJoinReqs, setIsLoadingJoinReqs] = useState(false);
   const [respondingRequestId, setRespondingRequestId] = useState<string | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  const [collapsedColumns, setCollapsedColumns] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mediaQuery = window.matchMedia("(max-width: 767px)");
+    const updateIsMobile = () => setIsMobile(mediaQuery.matches);
+    updateIsMobile();
+    mediaQuery.addEventListener("change", updateIsMobile);
+    return () => mediaQuery.removeEventListener("change", updateIsMobile);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setCollapsedColumns({});
+    }
+  }, [isMobile]);
 
   // Drag state for batch operations
   const [isDraggingBatch, setIsDraggingBatch] = useState(false);
@@ -2269,6 +2288,14 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     setIsSelectionMode(true);
   };
 
+  const toggleColumnVisibility = (columnId: string) => {
+    if (!isMobile) return;
+    setCollapsedColumns((prev) => ({
+      ...prev,
+      [columnId]: !prev[columnId],
+    }));
+  };
+
   // Toggle individual task selection
   const toggleTaskSelection = (taskId: string, task: Task) => {
     if (!selectionContext) {
@@ -2561,19 +2588,19 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     }
   };
 
+  const boardWrapperClasses = cn(
+    "w-full max-w-7xl mx-auto rounded-2xl shadow-inner bg-gradient-to-br from-blue-50 to-purple-50 dark:bg-gray-900 dark:from-gray-900 dark:to-gray-800 flex flex-col gap-4 p-3 sm:p-4 lg:p-6",
+    isProjectView
+      ? "min-h-[calc(100vh-7rem)] lg:min-h-[calc(100vh-6rem)] overflow-y-auto"
+      : ""
+  );
+
   return (
-    <div
-      className={
-        "p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:bg-gray-900 dark:from-gray-900 dark:to-gray-800 rounded-2xl shadow-inner " +
-        (isProjectView
-          ? "flex flex-col gap-4 h-[calc(100vh-6rem)] lg:h-[calc(100vh-5rem)] min-h-0 overflow-hidden"
-          : "flex flex-col gap-4")
-      }
-    >
+    <div className={boardWrapperClasses}>
       {/* Project Header - Show when viewing a project board */}
       {projectId && currentProject && isProjectMember && (
         <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                 {currentProject.title}
@@ -2582,7 +2609,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                 {currentProject.description}
               </p>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <Badge variant="secondary" className="flex items-center gap-1">
                 <User className="h-3 w-3" />
                 {(currentProject.members?.length || 0)} member{((currentProject.members?.length || 0)) !== 1 ? 's' : ''}
@@ -2605,6 +2632,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                 <Button
                   variant="outline"
                   size="sm"
+                  className="w-full md:w-auto"
                   onClick={() => setIsManageContribOpen(true)}
                 >
                   Manage Contributors
@@ -3125,7 +3153,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
         </div>
       </div>
 
-      <div className={`flex-1 min-h-0 ${isProjectView ? "overflow-hidden" : ""}`}>
+      <div className={`flex-1 min-h-0 ${isProjectView ? "overflow-visible lg:overflow-hidden" : ""}`}>
         {isLoading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 h-full">
           {Array.from({ length: 4 }).map((_, i) => (
@@ -3171,6 +3199,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                 column.id === "done" ? isSelectionActiveFor("done", "unpaid") : false;
               const showSelectAllButton = column.id === "done" && isUnpaidSelectionActive;
 
+              const isColumnCollapsed = isMobile && collapsedColumns[column.id];
               return (
                 <div
                   key={column.id}
@@ -3178,7 +3207,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                     isProjectView ? "h-full min-h-0" : ""
                   }`}
                 >
-                  <div className="mb-4 flex items-center justify-between">
+                  <div className="mb-4 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       {column.icon}
                       <h2 className="font-semibold">
@@ -3186,43 +3215,59 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                       </h2>
                     </div>
 
-                    {(isStandardColumn || showSelectAllButton) && (
-                      <div className="flex items-center gap-2">
-                        {isStandardColumn && (
-                          <button
-                            type="button"
-                            aria-pressed={columnSelectionActive}
-                            onClick={() => toggleColumnSelectionMode(column.id)}
-                            className={`h-7 w-7 rounded-full border flex items-center justify-center transition text-muted-foreground ${
-                              columnSelectionActive
-                                ? "border-purple-500 text-purple-600 bg-purple-50 dark:bg-purple-500/20"
-                                : "border-muted-foreground/30 hover:border-purple-400 hover:text-purple-500"
-                            }`}
-                            title={
-                              columnSelectionActive
-                                ? "Disable multi-select for this column"
-                                : "Enable multi-select for this column"
-                            }
-                          >
-                            {columnSelectionActive ? (
-                              <CheckSquare className="h-4 w-4" />
-                            ) : (
-                              <Square className="h-4 w-4" />
-                            )}
-                          </button>
-                        )}
-                        {showSelectAllButton && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => selectAllInColumn(column.id, "unpaid")}
-                            className="text-xs h-7 px-2"
-                          >
-                            Select All
-                          </Button>
-                        )}
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {isMobile && (
+                        <button
+                          type="button"
+                          onClick={() => toggleColumnVisibility(column.id)}
+                          aria-expanded={!isColumnCollapsed}
+                          className="h-7 w-7 rounded-full border border-muted-foreground/30 flex items-center justify-center text-muted-foreground hover:text-primary hover:border-primary transition"
+                        >
+                          {isColumnCollapsed ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronUp className="h-4 w-4" />
+                          )}
+                        </button>
+                      )}
+                      {(isStandardColumn || showSelectAllButton) && (
+                        <div className="flex items-center gap-2">
+                          {isStandardColumn && (
+                            <button
+                              type="button"
+                              aria-pressed={columnSelectionActive}
+                              onClick={() => toggleColumnSelectionMode(column.id)}
+                              className={`h-7 w-7 rounded-full border flex items-center justify-center transition text-muted-foreground ${
+                                columnSelectionActive
+                                  ? "border-purple-500 text-purple-600 bg-purple-50 dark:bg-purple-500/20"
+                                  : "border-muted-foreground/30 hover:border-purple-400 hover:text-purple-500"
+                              }`}
+                              title={
+                                columnSelectionActive
+                                  ? "Disable multi-select for this column"
+                                  : "Enable multi-select for this column"
+                              }
+                            >
+                              {columnSelectionActive ? (
+                                <CheckSquare className="h-4 w-4" />
+                              ) : (
+                                <Square className="h-4 w-4" />
+                              )}
+                            </button>
+                          )}
+                          {showSelectAllButton && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => selectAllInColumn(column.id, "unpaid")}
+                              className="text-xs h-7 px-2"
+                            >
+                              Select All
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <Droppable droppableId={column.id}>
@@ -3230,8 +3275,14 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                       <div
                         {...provided.droppableProps}
                         ref={provided.innerRef}
-                        className="flex-1 overflow-y-auto overflow-x-hidden space-y-3 pr-2 -mr-2"
-                        style={{ minHeight: 0 }}
+                        className={cn(
+                          "space-y-3 pr-2 -mr-2 transition-all duration-200",
+                          isColumnCollapsed
+                            ? "h-0 overflow-hidden opacity-0 pointer-events-none"
+                            : "flex-1 overflow-y-auto overflow-x-hidden",
+                          !isMobile && !isColumnCollapsed && "max-h-[65vh]"
+                        )}
+                        style={{ minHeight: isColumnCollapsed ? 0 : undefined }}
                       >
                       {/* Render grouped tasks for Done column, regular tasks for others */}
                       {column.id === "done" ? (

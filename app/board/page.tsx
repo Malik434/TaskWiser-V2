@@ -28,11 +28,13 @@ export default function BoardPage() {
     <div className="flex h-screen bg-gradient-to-br from-[hsl(210,40%,98%)] to-[hsl(250,40%,98%)] dark:bg-[#121212]">
       <Sidebar />
       <div className="flex-1 overflow-auto">
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-200 dark:border-[#333] bg-white/80 dark:bg-[#121212] backdrop-blur-sm px-6">
-          <h1 className="text-xl font-bold">Kanban Board</h1>
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-gray-200 dark:border-[#333] bg-white/80 dark:bg-[#121212] backdrop-blur-sm px-4 sm:h-16 sm:px-6">
+          <h1 className="text-lg font-bold sm:text-xl md:ml-0 ml-12">Kanban Board</h1>
+          <div className="flex items-center gap-2 sm:gap-4">
             <ThemeToggle />
-            <WalletConnect />
+            <div className="hidden sm:block">
+              <WalletConnect />
+            </div>
           </div>
         </header>
         <main className="animate-in fade-in duration-500">

@@ -50,7 +50,8 @@ const TOKEN_METADATA: Record<
   },
 };
 const BATCH_PAYMENT_CONTRACT_ADDRESS =
-  "0xcCA928f3951808aF1f6A22CC772571F1185BD40F";
+  "0xe4d140D48ddAdb4999F82E88cA86D9AaB7c39483";
+const MAX_BATCH_SIZE = 200; // Matches contract MAX_BATCH constant
 const ERC20_ALLOWANCE_ABI = [
   "function allowance(address owner, address spender) view returns (uint256)",
   "function balanceOf(address owner) view returns (uint256)",
@@ -64,6 +65,29 @@ const ERC20_INTERFACE = new ethers.Interface([
 ]);
 const ALL_SUPPORTED_TOKENS = Object.keys(TOKEN_METADATA) as SupportedToken[];
 const MIN_GAS_BUFFER_WEI = ethers.parseUnits("0.00005", "ether");
+const DISPLAY_DECIMALS = 4;
+
+const formatDecimalString = (
+  value: string | null,
+  maximumFractionDigits = DISPLAY_DECIMALS
+) => {
+  if (value === null) {
+    return null;
+  }
+  const numericValue = Number(value);
+  if (Number.isFinite(numericValue)) {
+    return numericValue.toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits,
+      useGrouping: false,
+    });
+  }
+  const [whole, fraction] = value.split(".");
+  if (!fraction) {
+    return whole;
+  }
+  return `${whole}.${fraction.slice(0, maximumFractionDigits)}`;
+};
 
 type MetaMaskProvider = Eip1193Provider & {
   isMetaMask?: boolean;
@@ -285,7 +309,8 @@ export function PaymentComponent({
     if (!tokenMeta || walletTokenBalance === null) {
       return null;
     }
-    return ethers.formatUnits(walletTokenBalance, tokenMeta.decimals);
+    const formatted = ethers.formatUnits(walletTokenBalance, tokenMeta.decimals);
+    return formatDecimalString(formatted);
   }, [walletTokenBalance, selectedToken]);
 
   const formattedRequiredToken = useMemo(() => {
@@ -293,21 +318,24 @@ export function PaymentComponent({
     if (!tokenMeta) {
       return "0";
     }
-    return ethers.formatUnits(requiredTokenAtomic, tokenMeta.decimals);
+    const formatted = ethers.formatUnits(requiredTokenAtomic, tokenMeta.decimals);
+    return formatDecimalString(formatted) ?? "0";
   }, [requiredTokenAtomic, selectedToken]);
 
   const formattedEthBalance = useMemo(() => {
     if (walletEthBalance === null) {
       return null;
     }
-    return ethers.formatEther(walletEthBalance);
+    const formatted = ethers.formatEther(walletEthBalance);
+    return formatDecimalString(formatted);
   }, [walletEthBalance]);
 
   const formattedEstimatedGasFee = useMemo(() => {
     if (estimatedGasFeeWei === null) {
       return null;
     }
-    return ethers.formatEther(estimatedGasFeeWei);
+    const formatted = ethers.formatEther(estimatedGasFeeWei);
+    return formatDecimalString(formatted);
   }, [estimatedGasFeeWei]);
 
   const requiresTokenBalanceCheck = requiredTokenAtomic > BigInt(0);
@@ -488,6 +516,10 @@ export function PaymentComponent({
   const validateTargets = () => {
     if (!payoutTargets.length) {
       setError("No assignees provided.");
+      return false;
+    }
+    if (mode === "batch" && payoutTargets.length > MAX_BATCH_SIZE) {
+      setError(`Batch size exceeds maximum of ${MAX_BATCH_SIZE} recipients. Please split into smaller batches.`);
       return false;
     }
     for (const target of payoutTargets) {

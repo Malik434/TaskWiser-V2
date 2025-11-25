@@ -20,6 +20,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { UserSearchSelect } from "@/components/user-search-select";
+import { cn } from "@/lib/utils";
 
 export default function ProjectsPage() {
   const router = useRouter();
@@ -526,39 +527,41 @@ export default function ProjectsPage() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-6 dark-header">
-        <h1 className="text-xl font-bold">Projects</h1>
-        <div className="flex items-center gap-4">
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-4 dark-header sm:h-16 sm:px-6">
+        <h1 className="text-lg font-bold sm:text-xl md:ml-0 ml-12">Projects</h1>
+        <div className="flex items-center gap-2 sm:gap-4">
           <ThemeToggle />
-          <WalletConnect />
+          <div className="hidden sm:block">
+            <WalletConnect />
+          </div>
         </div>
       </header>
-      <main className="animate-in fade-in duration-500 p-6">
+      <main className="animate-in fade-in duration-500 p-3 sm:p-4 md:p-6">
         {pendingInvitations.length > 0 && (
-          <Card className="mb-6 dark-card">
-            <CardHeader>
-              <CardTitle>Pending Invitations</CardTitle>
-              <CardDescription>Accept an invitation to join a project.</CardDescription>
+          <Card className="mb-4 dark-card sm:mb-6">
+            <CardHeader className="p-4 sm:p-6">
+              <CardTitle className="text-base sm:text-lg">Pending Invitations</CardTitle>
+              <CardDescription className="text-xs sm:text-sm">Accept an invitation to join a project.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
               {isLoadingInvites ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" /> Loading invitations...
+                <div className="flex items-center gap-2 text-xs text-muted-foreground sm:text-sm">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" /> Loading invitations...
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {pendingInvitations.map((inv) => (
-                    <div key={inv.id} className="flex items-center justify-between p-3 border rounded-lg dark:border-gray-700">
-                      <div className="flex items-center gap-3">
-                        <Users className="h-4 w-4" />
+                    <div key={inv.id} className="flex flex-col gap-2 p-2 border rounded-lg dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between sm:p-3">
+                      <div className="flex items-center gap-2 sm:gap-3">
+                        <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         <div className="flex flex-col">
-                          <span className="font-medium">{inv.projectTitle || "Project"}</span>
-                          <span className="text-xs text-muted-foreground">Invited by {inv.inviterAddress?.substring(0, 10)}...</span>
+                          <span className="text-sm font-medium sm:text-base">{inv.projectTitle || "Project"}</span>
+                          <span className="text-[10px] text-muted-foreground sm:text-xs">Invited by {inv.inviterAddress?.substring(0, 10)}...</span>
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <Button size="sm" className="gradient-button" onClick={() => handleAcceptInvitation(inv)}>Accept</Button>
-                        <Button size="sm" variant="outline" onClick={() => handleRejectInvitation(inv)}>Reject</Button>
+                        <Button size="sm" className="gradient-button text-xs sm:text-sm" onClick={() => handleAcceptInvitation(inv)}>Accept</Button>
+                        <Button size="sm" variant="outline" className="text-xs sm:text-sm" onClick={() => handleRejectInvitation(inv)}>Reject</Button>
                       </div>
                     </div>
                   ))}
@@ -567,15 +570,15 @@ export default function ProjectsPage() {
             </CardContent>
           </Card>
         )}
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-2xl font-bold">My Projects</h2>
+          <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-xl font-bold sm:text-2xl">My Projects</h2>
             <Dialog
               open={isAddProjectDialogOpen}
               onOpenChange={setIsAddProjectDialogOpen}
             >
               <DialogTrigger asChild>
-                <Button className="gradient-button">
-                  <PlusCircle className="mr-2 h-4 w-4" />
+                <Button className="gradient-button w-full text-sm sm:w-auto sm:text-base">
+                  <PlusCircle className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
                   Add New Project
                 </Button>
               </DialogTrigger>
@@ -649,7 +652,7 @@ export default function ProjectsPage() {
             </Dialog>
           </div>
 
-          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
             {projects.map((project) => (
               <Card
                 key={project.id}
@@ -658,11 +661,11 @@ export default function ProjectsPage() {
                 )}`}
                 onClick={() => router.push(`/projects/${project.id}`)}
               >
-                <CardHeader className="pb-2">
+                <CardHeader className="p-3 pb-2 sm:p-6 sm:pb-2">
                   <div className="flex justify-between items-start">
-                    <div>
-                      <CardTitle className="text-xl">{project.title}</CardTitle>
-                      <CardDescription className="mt-1 dark:text-gray-400">
+                    <div className="min-w-0 flex-1">
+                      <CardTitle className="text-base sm:text-lg md:text-xl truncate">{project.title}</CardTitle>
+                      <CardDescription className="mt-1 text-xs dark:text-gray-400 sm:text-sm">
                         {new Date(project.createdAt).toLocaleDateString()}
                       </CardDescription>
                     </div>
@@ -673,9 +676,9 @@ export default function ProjectsPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 dark:hover:bg-gray-700"
+                            className="h-7 w-7 flex-shrink-0 dark:hover:bg-gray-700 sm:h-8 sm:w-8"
                           >
-                            <MoreHorizontal className="h-4 w-4" />
+                            <MoreHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             <span className="sr-only">Open menu</span>
                           </Button>
                         </DropdownMenuTrigger>
@@ -718,26 +721,26 @@ export default function ProjectsPage() {
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 dark:hover:bg-gray-700"
+                        className="h-7 w-7 flex-shrink-0 dark:hover:bg-gray-700 sm:h-8 sm:w-8"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleViewDetails(project, e);
                         }}
                       >
-                        <Eye className="h-4 w-4" />
+                        <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                         <span className="sr-only">View details</span>
                       </Button>
                     )}
                   </div>
                 </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+                <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 sm:text-sm">
                     {project.description || "No description provided."}
                   </p>
                 </CardContent>
-                <CardFooter className="flex justify-between pt-2 border-t dark:border-gray-700">
-                  <div className="flex items-center text-sm text-gray-500 dark:text-gray-400">
-                    <Calendar className="mr-1 h-4 w-4" />
+                <CardFooter className="flex flex-col gap-2 p-3 pt-2 border-t dark:border-gray-700 sm:flex-row sm:justify-between sm:p-6 sm:pt-4">
+                  <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
+                    <Calendar className="mr-1 h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     <span>
                       {new Date(project.createdAt).toLocaleDateString("en-US", {
                         month: "short",
@@ -745,18 +748,18 @@ export default function ProjectsPage() {
                       })}
                     </span>
                   </div>
-                  <div className="flex items-center">
-                    <Badge className={getStatusBadgeClass(project.status)}>
+                  <div className="flex items-center justify-between sm:justify-end">
+                    <Badge className={cn(getStatusBadgeClass(project.status), "text-xs sm:text-sm")}>
                       {project.status.charAt(0).toUpperCase() +
                         project.status.slice(1)}
                     </Badge>
                     <div className="ml-3">
-                      <Avatar className="h-8 w-8 border border-background dark:border-gray-700">
+                      <Avatar className="h-6 w-6 border border-background dark:border-gray-700 sm:h-8 sm:w-8">
                         <AvatarImage
                           src={project.logoUrl || "/placeholder.svg"}
                           alt={project.title}
                         />
-                        <AvatarFallback className="dark:bg-gray-700 dark:text-gray-300">
+                        <AvatarFallback className="text-xs dark:bg-gray-700 dark:text-gray-300 sm:text-sm">
                           {project.title?.substring(0, 2).toUpperCase() || "PJ"}
                         </AvatarFallback>
                       </Avatar>

@@ -63,15 +63,17 @@ export default function ProjectBoardPage() {
   if (isLoading) {
     return (
       <>
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-6 dark-header">
-          <h1 className="text-xl font-bold">Loading Project...</h1>
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-4 dark-header sm:h-16 sm:px-6">
+          <h1 className="text-lg font-bold sm:text-xl md:ml-0 ml-12">Loading Project...</h1>
+          <div className="flex items-center gap-2 sm:gap-4">
             <ThemeToggle />
-            <WalletConnect />
+            <div className="hidden sm:block">
+              <WalletConnect />
+            </div>
           </div>
         </header>
-        <main className="flex items-center justify-center h-full">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <main className="flex items-center justify-center h-full p-3 sm:p-6">
+          <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary sm:h-12 sm:w-12"></div>
         </main>
       </>
     );
@@ -80,14 +82,16 @@ export default function ProjectBoardPage() {
   if (error || !project) {
     return (
       <>
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-6 dark-header">
-          <h1 className="text-xl font-bold">Project Error</h1>
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-4 dark-header sm:h-16 sm:px-6">
+          <h1 className="text-lg font-bold sm:text-xl md:ml-0 ml-12">Project Error</h1>
+          <div className="flex items-center gap-2 sm:gap-4">
             <ThemeToggle />
-            <WalletConnect />
+            <div className="hidden sm:block">
+              <WalletConnect />
+            </div>
           </div>
         </header>
-        <main className="p-6">
+        <main className="p-3 sm:p-4 lg:p-6">
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
@@ -109,8 +113,8 @@ export default function ProjectBoardPage() {
 
   return (
     <>
-      <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-6 dark-header">
-        <div className="flex items-center gap-4">
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-4 dark-header sm:h-16 sm:px-6">
+        <div className="flex items-center gap-3 sm:gap-4">
           <Button
             onClick={() => router.push("/projects")}
             variant="ghost"
@@ -119,18 +123,20 @@ export default function ProjectBoardPage() {
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <h1 className="text-xl font-bold">{project.title}</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="text-lg font-bold sm:text-xl md:ml-0 ml-8">{project.title}</h1>
+            <p className="text-xs text-muted-foreground sm:text-sm">
               Project Board
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 sm:gap-4">
           <ThemeToggle />
-          <WalletConnect />
+          <div className="hidden sm:block">
+            <WalletConnect />
+          </div>
         </div>
       </header>
-      <main className="animate-in fade-in duration-500">
+      <main className="animate-in fade-in duration-500 p-3 sm:p-4 lg:p-6">
         <KanbanBoard projectId={projectId} />
       </main>
     </>

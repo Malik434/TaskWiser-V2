@@ -186,70 +186,72 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="flex h-screen dark-container">
+    <div className="flex min-h-screen dark-container">
       <Sidebar />
-      <div className="flex-1 overflow-auto">
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-6 dark-header">
+      <div className="flex-1">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-4 dark-header sm:h-16 sm:px-6">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-bold">Edit Profile</h1>
+            <h1 className="text-lg font-bold sm:text-xl md:ml-0 ml-12">Edit Profile</h1>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             <ThemeToggle />
-            <WalletConnect />
+            <div className="hidden sm:block">
+              <WalletConnect />
+            </div>
           </div>
         </header>
 
-        <main className="animate-in fade-in duration-500 p-6">
-          <div className="max-w-5xl mx-auto space-y-6">
+        <main className="animate-in fade-in duration-500 p-3 sm:p-4 md:p-6 pb-10">
+          <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm text-muted-foreground">Account Settings</p>
-                <h2 className="text-2xl font-semibold">Profile</h2>
+                <p className="text-xs text-muted-foreground sm:text-sm">Account Settings</p>
+                <h2 className="text-xl font-semibold sm:text-2xl">Profile</h2>
               </div>
             </div>
 
             {!isClient ? (
-              <Card className="p-10 text-center dark-card">
-                <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-primary" />
-                <p className="text-muted-foreground">Initializing profile...</p>
+              <Card className="p-6 text-center dark-card sm:p-10">
+                <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-primary sm:h-6 sm:w-6" />
+                <p className="text-sm text-muted-foreground sm:text-base">Initializing profile...</p>
               </Card>
             ) : !isConnected ? (
-              <Card className="p-10 text-center dark-card">
-                <p className="text-muted-foreground">Connect your wallet to view and edit your profile.</p>
+              <Card className="p-6 text-center dark-card sm:p-10">
+                <p className="text-sm text-muted-foreground sm:text-base">Connect your wallet to view and edit your profile.</p>
                 <div className="mt-4 flex justify-center">
                   <WalletConnect />
                 </div>
               </Card>
             ) : isLoading ? (
-              <Card className="p-10 text-center dark-card">
-                <Loader2 className="mx-auto mb-3 h-6 w-6 animate-spin text-primary" />
-                <p className="text-muted-foreground">Loading your profile...</p>
+              <Card className="p-6 text-center dark-card sm:p-10">
+                <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-primary sm:h-6 sm:w-6" />
+                <p className="text-sm text-muted-foreground sm:text-base">Loading your profile...</p>
               </Card>
             ) : !userProfile ? (
-              <Card className="p-10 text-center dark-card">
-                <p className="text-muted-foreground">No profile found. Please set up your profile from the dashboard.</p>
-                <Button variant="outline" className="mt-4" onClick={() => router.push("/dashboard")}>
+              <Card className="p-6 text-center dark-card sm:p-10">
+                <p className="text-sm text-muted-foreground sm:text-base">No profile found. Please set up your profile from the dashboard.</p>
+                <Button variant="outline" className="mt-4 text-sm sm:text-base" onClick={() => router.push("/dashboard")}>
                   Go to Dashboard
                 </Button>
               </Card>
             ) : (
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="grid gap-6 lg:grid-cols-3">
+              <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
+                <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
                   <Card className="lg:col-span-1 dark-card">
-                    <CardHeader>
-                      <CardTitle>Profile Picture</CardTitle>
-                      <CardDescription>Upload an image that represents you.</CardDescription>
+                    <CardHeader className="p-4 sm:p-6">
+                      <CardTitle className="text-base sm:text-lg">Profile Picture</CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">Upload an image that represents you.</CardDescription>
                     </CardHeader>
-                    <CardContent className="flex flex-col items-center gap-4">
+                    <CardContent className="flex flex-col items-center gap-3 p-4 pt-0 sm:gap-4 sm:p-6 sm:pt-0">
                       <div className="relative">
-                        <Avatar className="h-28 w-28 border border-dashed border-muted-foreground/30 dark:border-gray-700">
+                        <Avatar className="h-24 w-24 border border-dashed border-muted-foreground/30 dark:border-gray-700 sm:h-28 sm:w-28">
                           {userProfile?.profilePicture ? (
                             <AvatarImage src={userProfile.profilePicture || "/placeholder.svg"} alt={userProfile.username} />
                           ) : previewUrl ? (
                             <AvatarImage src={previewUrl || "/placeholder.svg"} alt="Profile preview" />
                           ) : (
                             <AvatarFallback className="dark:bg-gray-700">
-                              <User className="h-10 w-10" />
+                              <User className="h-8 w-8 sm:h-10 sm:w-10" />
                             </AvatarFallback>
                           )}
                         </Avatar>
@@ -257,15 +259,15 @@ export default function ProfilePage() {
                           type="button"
                           size="icon"
                           variant="outline"
-                          className="absolute bottom-0 right-0 h-9 w-9 rounded-full dark:bg-gray-700 dark:border-gray-600"
+                          className="absolute bottom-0 right-0 h-8 w-8 rounded-full dark:bg-gray-700 dark:border-gray-600 sm:h-9 sm:w-9"
                           onClick={triggerFileInput}
                           disabled={isUploading}
                         >
-                          {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                          {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" /> : <Upload className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
                         </Button>
                         <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
                       </div>
-                      <p className="text-xs text-muted-foreground text-center">Click the button to upload a new profile picture</p>
+                      <p className="text-[10px] text-muted-foreground text-center sm:text-xs">Click the button to upload a new profile picture</p>
 
                       <div className="w-full space-y-2">
                         <Label htmlFor="wallet-address" className="dark:text-gray-300">
@@ -282,11 +284,11 @@ export default function ProfilePage() {
                   </Card>
 
                   <Card className="lg:col-span-2 dark-card">
-                    <CardHeader>
-                      <CardTitle>Basic Details</CardTitle>
-                      <CardDescription>Update the information that your teammates will see.</CardDescription>
+                    <CardHeader className="p-4 sm:p-6">
+                      <CardTitle className="text-base sm:text-lg">Basic Details</CardTitle>
+                      <CardDescription className="text-xs sm:text-sm">Update the information that your teammates will see.</CardDescription>
                     </CardHeader>
-                    <CardContent className="grid gap-4 md:grid-cols-2">
+                    <CardContent className="grid gap-3 p-4 pt-0 sm:gap-4 sm:p-6 sm:pt-0 md:grid-cols-2">
                       <div className="space-y-2 md:col-span-2">
                         <Label htmlFor="display-name" className="dark:text-gray-300">
                           Display Name
@@ -343,18 +345,18 @@ export default function ProfilePage() {
                 </div>
 
                 <Card className="dark-card">
-                  <CardHeader>
-                    <CardTitle>Specialties</CardTitle>
-                    <CardDescription>Select your areas of expertise so project leads know where you shine.</CardDescription>
+                  <CardHeader className="p-4 sm:p-6">
+                    <CardTitle className="text-base sm:text-lg">Specialties</CardTitle>
+                    <CardDescription className="text-xs sm:text-sm">Select your areas of expertise so project leads know where you shine.</CardDescription>
                   </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+                  <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-3">
                       {SPECIALTY_OPTIONS.map((opt) => {
                         const isSelected = selectedSpecialties.includes(opt)
                         return (
                           <label
                             key={opt}
-                            className={`flex items-center gap-2 rounded-md border p-2 text-sm transition hover:border-primary/60 ${
+                            className={`flex items-center gap-2 rounded-md border p-2 text-xs transition hover:border-primary/60 sm:text-sm ${
                               isSelected ? "border-primary bg-primary/5 text-primary" : "border-border bg-muted/40 dark:bg-gray-800/50"
                             }`}
                           >
@@ -368,10 +370,10 @@ export default function ProfilePage() {
                 </Card>
 
                 <div className="flex justify-end">
-                  <Button type="submit" disabled={isLoading} className="min-w-[140px] dark:bg-primary dark:hover:bg-primary/90">
+                  <Button type="submit" disabled={isLoading} className="w-full min-w-0 text-sm dark:bg-primary dark:hover:bg-primary/90 sm:w-auto sm:min-w-[140px] sm:text-base">
                     {isLoading ? (
                       <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" />
                         Saving...
                       </>
                     ) : (

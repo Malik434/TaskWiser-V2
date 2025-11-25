@@ -26,12 +26,11 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   Select,
   SelectContent,
@@ -47,6 +46,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 interface DashboardStats {
   totalAssigned: number;
@@ -277,32 +277,34 @@ export default function MyTaskboardPage() {
     <div className="flex h-screen dark-container">
       <Sidebar />
       <div className="flex-1 overflow-auto">
-        <header className="sticky top-0 z-10 flex h-16 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-6 dark-header">
-          <h1 className="text-xl font-bold">Dashboard</h1>
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-4 dark-header sm:h-16 sm:px-6">
+          <h1 className="text-lg font-bold sm:text-xl md:ml-0 ml-12">Dashboard</h1>
+          <div className="flex items-center gap-2 sm:gap-4">
             <ThemeToggle />
-            <WalletConnect />
+            <div className="hidden sm:block">
+              <WalletConnect />
+            </div>
           </div>
         </header>
 
-        <main className="animate-in fade-in duration-500 p-6">
+        <main className="animate-in fade-in duration-500 p-3 sm:p-4 md:p-6">
           {/* Dashboard Statistics */}
-          <div className="mb-8">
-            <h2 className="text-2xl font-bold mb-4">Statistics</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div className="mb-6 sm:mb-8">
+            <h2 className="text-xl font-bold mb-3 sm:text-2xl sm:mb-4">Statistics</h2>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-5">
               {/* Total Tasks */}
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <TrendingUp className="h-4 w-4" />
+                <CardHeader className="pb-2 p-3 sm:p-4">
+                  <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 sm:text-sm sm:gap-2">
+                    <TrendingUp className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                     Total Tasks
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
+                <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
+                  <div className="text-xl font-bold sm:text-2xl">
                     {stats.totalAssigned}
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[10px] text-muted-foreground sm:text-xs">
                     Assigned to you
                   </p>
                 </CardContent>
@@ -310,17 +312,17 @@ export default function MyTaskboardPage() {
 
               {/* Completed Tasks */}
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-[hsl(var(--kanban-done-foreground))]" />
+                <CardHeader className="pb-2 p-3 sm:p-4">
+                  <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 sm:text-sm sm:gap-2">
+                    <CheckCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[hsl(var(--kanban-done-foreground))]" />
                     Completed
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-[hsl(var(--kanban-done-foreground))]">
+                <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
+                  <div className="text-xl font-bold text-[hsl(var(--kanban-done-foreground))] sm:text-2xl">
                     {stats.completed}
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[10px] text-muted-foreground sm:text-xs">
                     {stats.totalAssigned > 0
                       ? Math.round(
                           (stats.completed / stats.totalAssigned) * 100
@@ -333,17 +335,17 @@ export default function MyTaskboardPage() {
 
               {/* Pending Tasks */}
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-[hsl(var(--kanban-in-progress-foreground))]" />
+                <CardHeader className="pb-2 p-3 sm:p-4">
+                  <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 sm:text-sm sm:gap-2">
+                    <Clock className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[hsl(var(--kanban-in-progress-foreground))]" />
                     Pending
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-[hsl(var(--kanban-in-progress-foreground))]">
+                <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
+                  <div className="text-xl font-bold text-[hsl(var(--kanban-in-progress-foreground))] sm:text-2xl">
                     {stats.pending}
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[10px] text-muted-foreground sm:text-xs">
                     In progress or to do
                   </p>
                 </CardContent>
@@ -351,33 +353,33 @@ export default function MyTaskboardPage() {
 
               {/* Total Earnings */}
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <CreditCard className="h-4 w-4 text-[hsl(var(--kanban-done-foreground))]" />
+                <CardHeader className="pb-2 p-3 sm:p-4">
+                  <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 sm:text-sm sm:gap-2">
+                    <CreditCard className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[hsl(var(--kanban-done-foreground))]" />
                     Total Earnings
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-[hsl(var(--kanban-done-foreground))]">
+                <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
+                  <div className="text-xl font-bold text-[hsl(var(--kanban-done-foreground))] sm:text-2xl">
                     {"$" + stats.totalEarnings}
                   </div>
-                  <p className="text-xs text-muted-foreground">Paid rewards</p>
+                  <p className="text-[10px] text-muted-foreground sm:text-xs">Paid rewards</p>
                 </CardContent>
               </Card>
 
               {/* Pending Payments */}
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                    <AlertCircle className="h-4 w-4 text-[hsl(var(--kanban-in-progress-foreground))]" />
+                <CardHeader className="pb-2 p-3 sm:p-4">
+                  <CardTitle className="text-xs font-medium text-muted-foreground flex items-center gap-1.5 sm:text-sm sm:gap-2">
+                    <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-[hsl(var(--kanban-in-progress-foreground))]" />
                     Pending Payments
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold text-[hsl(var(--kanban-in-progress-foreground))]">
+                <CardContent className="p-3 pt-0 sm:p-4 sm:pt-0">
+                  <div className="text-xl font-bold text-[hsl(var(--kanban-in-progress-foreground))] sm:text-2xl">
                     {"$" + stats.pendingPayments}
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-[10px] text-muted-foreground sm:text-xs">
                     Awaiting payment
                   </p>
                 </CardContent>
@@ -387,27 +389,27 @@ export default function MyTaskboardPage() {
 
           {/* Personal Task Board */}
           <div>
-            <h2 className="text-2xl font-bold mb-4">My Tasks</h2>
-            <p className="text-sm text-muted-foreground mb-4">
+            <h2 className="text-xl font-bold mb-3 sm:text-2xl sm:mb-4">My Tasks</h2>
+            <p className="text-xs text-muted-foreground mb-3 sm:text-sm sm:mb-4">
               Read-only view of all tasks assigned to you across all projects
             </p>
 
             {/* Filters and Search */}
-            <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center">
+            <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:gap-4 md:flex-row md:items-center">
               <div className="flex-1 flex gap-2">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground sm:left-3 sm:h-4 sm:w-4" />
                   <Input
                     placeholder="Search tasks..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
+                    className="pl-8 text-sm sm:pl-10"
                   />
                 </div>
               </div>
               <div className="flex gap-2">
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className="w-[120px] text-xs sm:w-[150px] sm:text-sm">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -422,7 +424,7 @@ export default function MyTaskboardPage() {
                   value={filterPriority}
                   onValueChange={setFilterPriority}
                 >
-                  <SelectTrigger className="w-[150px]">
+                  <SelectTrigger className="w-[120px] text-xs sm:w-[150px] sm:text-sm">
                     <SelectValue placeholder="Priority" />
                   </SelectTrigger>
                   <SelectContent>
@@ -454,58 +456,58 @@ export default function MyTaskboardPage() {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2 sm:space-y-3">
                 {filteredTasks.map((task) => (
                   <Card
                     key={task.id}
                     className="hover:shadow-md transition-shadow"
                   >
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-base mb-1">
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-semibold text-sm mb-1 sm:text-base">
                             {task.title}
                           </h3>
-                          <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                          <p className="text-xs text-muted-foreground mb-2 line-clamp-2 sm:text-sm sm:mb-3">
                             {task.description}
                           </p>
-                          <div className="flex flex-wrap gap-2 items-center">
-                            <Badge className={getStatusColor(task.status)}>
+                          <div className="flex flex-wrap gap-1.5 items-center sm:gap-2">
+                            <Badge className={cn(getStatusColor(task.status), "text-xs sm:text-sm")}>
                               {task.status.charAt(0).toUpperCase() +
                                 task.status.slice(1)}
                             </Badge>
-                            <Badge className={getPriorityColor(task.priority)}>
+                            <Badge className={cn(getPriorityColor(task.priority), "text-xs sm:text-sm")}>
                               {task.priority.charAt(0).toUpperCase() +
                                 task.priority.slice(1)}
                             </Badge>
                             {task.reward && task.rewardAmount && (
-                              <Badge variant="secondary">
+                              <Badge variant="secondary" className="text-xs sm:text-sm">
                                 {task.rewardAmount} {task.reward}
                               </Badge>
                             )}
                             {task.paid && (
-                              <Badge className="bg-[hsl(var(--kanban-done))] text-muted-foreground">
+                              <Badge className="bg-[hsl(var(--kanban-done))] text-muted-foreground text-xs sm:text-sm">
                                 ✓ Paid
                               </Badge>
                             )}
                             {task.submission?.status === "pending" && (
-                              <Badge className="bg-[hsl(var(--kanban-in-progress))] text-muted-foreground">
+                              <Badge className="bg-[hsl(var(--kanban-in-progress))] text-muted-foreground text-xs sm:text-sm">
                                 Submission Pending
                               </Badge>
                             )}
                             {task.submission?.status === "approved" && (
-                              <Badge className="bg-[hsl(var(--kanban-done))] text-muted-foreground">
+                              <Badge className="bg-[hsl(var(--kanban-done))] text-muted-foreground text-xs sm:text-sm">
                                 ✓ Approved
                               </Badge>
                             )}
                             {task.submission?.status === "rejected" && (
-                              <Badge className="bg-[hsl(var(--destructive))] text-[hsl(var(--destructive-foreground))]">
+                              <Badge className="bg-[hsl(var(--destructive))] text-[hsl(var(--destructive-foreground))] text-xs sm:text-sm">
                                 ✗ Rejected
                               </Badge>
                             )}
                           </div>
                         </div>
-                        <div className="ml-4 flex flex-col items-end gap-2">
+                        <div className="flex flex-row items-center justify-between gap-2 sm:ml-4 sm:flex-col sm:items-end">
                           <Dialog
                             open={isSubmissionDialogOpen}
                             onOpenChange={setIsSubmissionDialogOpen}
@@ -518,9 +520,9 @@ export default function MyTaskboardPage() {
                                   setSelectedTaskForSubmission(task)
                                 }
                                 disabled={task.status === "done"}
-                                className="gap-1"
+                                className="gap-1 h-8 text-xs sm:h-9 sm:text-sm"
                               >
-                                <Upload className="h-3 w-3" />
+                                <Upload className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                                 Submit
                               </Button>
                             </DialogTrigger>
@@ -587,7 +589,7 @@ export default function MyTaskboardPage() {
                               </DialogContent>
                             )}
                           </Dialog>
-                          <div className="text-right">
+                          <div className="flex items-center gap-2 sm:flex-col sm:items-end sm:text-right">
                             {/* Project Information */}
                             {(() => {
                               const project = task.projectId 
@@ -595,21 +597,21 @@ export default function MyTaskboardPage() {
                                 : null;
                               
                               return (
-                                <div className="flex items-center justify-end gap-2 mb-2">
-                                  <Avatar className="h-6 w-6">
-                                    <AvatarFallback className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                                <div className="flex items-center gap-1.5 sm:justify-end sm:gap-2 sm:mb-2">
+                                  <Avatar className="h-5 w-5 sm:h-6 sm:w-6">
+                                    <AvatarFallback className="text-[10px] bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 sm:text-xs">
                                       {project?.title 
                                         ? project.title.substring(0, 2).toUpperCase()
                                         : "UK"}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <span className="text-xs text-muted-foreground">
+                                  <span className="text-[10px] text-muted-foreground sm:text-xs">
                                     {project?.title || "Unknown Project"}
                                   </span>
                                 </div>
                               );
                             })()}
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-[10px] text-muted-foreground sm:text-xs">
                               {new Date(task.createdAt).toLocaleDateString()}
                             </p>
                           </div>

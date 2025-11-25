@@ -108,40 +108,40 @@ export function PaymentPopup({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleDialogClose}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="max-h-[90vh] w-[95vw] overflow-y-auto sm:w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Process Payment</DialogTitle>
-          <DialogDescription>
+          <DialogTitle className="text-lg sm:text-xl">Process Payment</DialogTitle>
+          <DialogDescription className="text-sm">
             Send on-chain rewards to the assigned contributor via MetaMask.
           </DialogDescription>
         </DialogHeader>
 
         {!task ? (
-          <Alert variant="destructive">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>No task selected</AlertTitle>
-            <AlertDescription>
+          <Alert variant="destructive" className="p-3 sm:p-4">
+            <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+            <AlertTitle className="text-sm sm:text-base">No task selected</AlertTitle>
+            <AlertDescription className="text-xs sm:text-sm">
               Select a task with a reward to initialize the payment flow.
             </AlertDescription>
           </Alert>
         ) : (
-          <div className="space-y-4">
-            <div className="rounded-lg border bg-gray-50/60 p-4 dark:border-gray-800 dark:bg-gray-900">
-              <div className="flex flex-col gap-2">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-semibold">{task.title}</h3>
-                  <Badge variant="outline" className="capitalize">
+          <div className="space-y-3 sm:space-y-4">
+            <div className="rounded-lg border bg-gray-50/60 p-3 dark:border-gray-800 dark:bg-gray-900 sm:p-4">
+              <div className="flex flex-col gap-2 sm:gap-3">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <h3 className="text-sm font-semibold sm:text-base lg:text-lg">{task.title}</h3>
+                  <Badge variant="outline" className="w-fit capitalize">
                     {task.status}
                   </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {task.description?.length && task.description.length > 140
-                    ? `${task.description.slice(0, 140)}…`
+                <p className="text-xs text-muted-foreground sm:text-sm">
+                  {task.description?.length && task.description.length > 100
+                    ? `${task.description.slice(0, 100)}…`
                     : task.description || "No description provided."}
                 </p>
-                <div className="flex flex-wrap items-center gap-3 text-sm">
+                <div className="flex flex-col gap-2 text-xs sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 sm:text-sm">
                   <div className="flex items-center gap-1 font-medium">
-                    <DollarSign className="h-4 w-4 text-purple-500" />
+                    <DollarSign className="h-3.5 w-3.5 text-purple-500 sm:h-4 sm:w-4" />
                     {task.rewardAmount} {task.reward}
                   </div>
                   <div className="text-muted-foreground">
@@ -152,16 +152,16 @@ export function PaymentPopup({
             </div>
 
             {lookupError && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Wallet required</AlertTitle>
-                <AlertDescription>{lookupError}</AlertDescription>
+              <Alert variant="destructive" className="p-3 sm:p-4">
+                <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <AlertTitle className="text-sm sm:text-base">Wallet required</AlertTitle>
+                <AlertDescription className="text-xs sm:text-sm">{lookupError}</AlertDescription>
               </Alert>
             )}
 
             {isResolvingAssignee && !assigneeAddress && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
+              <div className="flex items-center gap-2 text-xs text-muted-foreground sm:text-sm">
+                <Loader2 className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" />
                 Fetching assignee wallet…
               </div>
             )}
@@ -186,10 +186,10 @@ export function PaymentPopup({
             )}
 
             {!canRenderPayment && !lookupError && (
-              <Alert>
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Cannot start payment</AlertTitle>
-                <AlertDescription>
+              <Alert className="p-3 sm:p-4">
+                <AlertCircle className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                <AlertTitle className="text-sm sm:text-base">Cannot start payment</AlertTitle>
+                <AlertDescription className="text-xs sm:text-sm">
                   Ensure the task has a valid reward amount, supported token (USDC/USDT), and an assigned contributor.
                 </AlertDescription>
               </Alert>

@@ -2777,12 +2777,20 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                   Add Task
                 </Button>
               </DialogTrigger>
-            <DialogContent className="max-w-5xl h-[90vh] min-h-0 overflow-hidden flex flex-col p-0">
-              <DialogHeader className="px-6 pt-6 pb-4 border-b">
+            <DialogContent className="max-w-[95vw] sm:max-w-5xl h-[92vh] sm:h-[90vh] min-h-0 overflow-hidden flex flex-col p-0 rounded-2xl border-slate-200 dark:border-slate-800">
+              <DialogHeader className="px-4 sm:px-6 pt-4 sm:pt-6 pb-3 sm:pb-4 border-b border-slate-200 dark:border-slate-800 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-950">
                 <div className="flex items-center justify-between">
-                  <DialogTitle>Create New Task</DialogTitle>
+                  <div>
+                    <DialogTitle className="text-lg sm:text-xl font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">Create New Task</DialogTitle>
+                    <p className="text-xs text-muted-foreground mt-1">Fill in the details to create a new task</p>
+                  </div>
                   <div className="flex items-center gap-2">
-                    <Button variant="ghost" size="sm" onClick={() => setShowAnalysisPanel((v) => !v)}>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setShowAnalysisPanel((v) => !v)}
+                      className="hidden md:flex rounded-full text-xs hover:bg-slate-100 dark:hover:bg-slate-800"
+                    >
                       {showAnalysisPanel ? "Hide Analysis" : "Show Analysis"}
                     </Button>
                   </div>
@@ -2928,19 +2936,20 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                 <ResizableHandle withHandle className="w-8 bg-transparent after:hidden" />
 
                 {/* Task Form Panel */}
-                <ResizablePanel defaultSize={52} minSize={42} className="min-h-0 p-6">
-                   <div className="h-full min-h-0 overflow-y-auto overscroll-contain space-y-4">
+                <ResizablePanel defaultSize={52} minSize={42} className="min-h-0 p-4 sm:p-6 bg-gradient-to-b from-slate-50/50 to-white dark:from-slate-900/50 dark:to-slate-950">
+                   <div className="h-full min-h-0 overflow-y-auto overscroll-contain space-y-4 sm:space-y-5">
 
                   {/* Task Name */}
                   <div className="space-y-2">
+                    <Label htmlFor="title" className="text-sm font-medium text-slate-700 dark:text-slate-300">Task Title</Label>
                     <Input
                       id="title"
                       value={newTask.title}
                       onChange={(e) =>
                         setNewTask({ ...newTask, title: e.target.value })
                       }
-                      placeholder="Enter a task name..."
-                      className="text-lg h-12"
+                      placeholder="Enter a descriptive task name..."
+                      className="text-base sm:text-lg h-11 sm:h-12 rounded-xl border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200"
                     />
                   </div>
 
@@ -2957,10 +2966,10 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                           setNewTask({ ...newTask, reward: "USDC" });
                         }
                       }}
-                      className={showRewardSection ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-600" : ""}
+                      className={`rounded-full transition-all duration-300 ${showRewardSection ? "bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white border-transparent shadow-lg shadow-purple-500/30" : "hover:border-purple-400 hover:text-purple-600 dark:hover:border-purple-500"}`}
                     >
-                      <DollarSign className="h-4 w-4 mr-2" />
-                      Add Reward
+                      <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                      <span className="text-xs sm:text-sm">Add Reward</span>
                     </Button>
                     <Button
                       variant="outline"
@@ -2974,10 +2983,10 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                           assigneeId: newOpenBountyState ? undefined : newTask.assigneeId
                         });
                       }}
-                      className={newTask.isOpenBounty ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-600" : ""}
+                      className={`rounded-full transition-all duration-300 ${newTask.isOpenBounty ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white border-transparent shadow-lg shadow-amber-500/30" : "hover:border-amber-400 hover:text-amber-600 dark:hover:border-amber-500"}`}
                     >
-                      <Award className="h-4 w-4 mr-2" />
-                      Open Bounty
+                      <Award className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                      <span className="text-xs sm:text-sm">Open Bounty</span>
                     </Button>
                     <Button
                       variant="outline"
@@ -2985,41 +2994,57 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                       onClick={() => {
                         setNewTask({ ...newTask, escrowEnabled: !newTask.escrowEnabled });
                       }}
-                      className={newTask.escrowEnabled ? "bg-purple-600 hover:bg-purple-700 text-white border-purple-600" : ""}
+                      className={`rounded-full transition-all duration-300 ${newTask.escrowEnabled ? "bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white border-transparent shadow-lg shadow-blue-500/30" : "hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500"}`}
                     >
-                      <Lock className="h-4 w-4 mr-2" />
-                      Enable Escrow
+                      <Lock className="h-3.5 w-3.5 sm:h-4 sm:w-4 mr-1.5 sm:mr-2" />
+                      <span className="text-xs sm:text-sm">Enable Escrow</span>
                     </Button>
                   </div>
 
                   {/* Description */}
                   <div className="space-y-2">
+                    <Label htmlFor="description" className="text-sm font-medium text-slate-700 dark:text-slate-300">Description</Label>
                     <Textarea
                       id="description"
                       value={newTask.description}
                       onChange={(e) =>
                         setNewTask({ ...newTask, description: e.target.value })
                       }
-                      placeholder='Write your description here...'
-                      className="min-h-[300px] resize-none"
+                      placeholder='Provide a detailed description of the task requirements...'
+                      className="min-h-[280px] sm:min-h-[300px] resize-none rounded-xl border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200"
                     />
                   </div>
 
                   {/* Analysis moved to left panel */}
 
                   {/* Create Button */}
-                  <div className="pt-4">
+                  <div className="pt-4 space-y-3">
                     {userProjectRole === "admin" && (
-                      <div className="mb-2 text-xs text-muted-foreground">
-                        Estimated Cost: ${useAIEstimator && aiEstimate ? aiEstimate.totalUSD.toLocaleString() : (typeof costEstimate?.totalUSD === 'number' ? costEstimate.totalUSD.toLocaleString() : '0')}
+                      <div className="rounded-lg bg-gradient-to-r from-purple-50 to-indigo-50 dark:from-purple-950/30 dark:to-indigo-950/30 p-3 border border-purple-200 dark:border-purple-800/50">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium text-slate-600 dark:text-slate-400">Estimated Cost:</span>
+                          <span className="text-lg font-bold bg-gradient-to-r from-purple-600 to-indigo-600 dark:from-purple-400 dark:to-indigo-400 bg-clip-text text-transparent">
+                            ${useAIEstimator && aiEstimate ? aiEstimate.totalUSD.toLocaleString() : (typeof costEstimate?.totalUSD === 'number' ? costEstimate.totalUSD.toLocaleString() : '0')}
+                          </span>
+                        </div>
                       </div>
                     )}
                     <Button
                       onClick={handleCreateTask}
                       disabled={isLoading}
-                      className="w-full gradient-button h-12"
+                      className="w-full h-12 sm:h-13 rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-fuchsia-600 hover:from-indigo-700 hover:via-purple-700 hover:to-fuchsia-700 text-white font-semibold shadow-lg shadow-purple-500/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl disabled:opacity-50 disabled:hover:scale-100"
                     >
-                      {isLoading ? "Creating..." : "Create"}
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Creating Task...
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="mr-2 h-4 w-4" />
+                          Create Task
+                        </>
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -3029,8 +3054,8 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                 <ResizableHandle withHandle className="w-6 bg-transparent after:hidden" />
 
                 {/* Metadata Sidebar Panel */}
-                <ResizablePanel defaultSize={20} minSize={18} className="min-h-0 border-l bg-muted/30 p-6">
-                   <div className="h-full min-h-0 overflow-y-auto overscroll-contain space-y-6">
+                <ResizablePanel defaultSize={20} minSize={18} className="min-h-0 border-l border-slate-200 dark:border-slate-800 bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-950 p-4 sm:p-6">
+                   <div className="h-full min-h-0 overflow-y-auto overscroll-contain space-y-5 sm:space-y-6">
                   {/* Status */}
                   <StatusSelect
                     value={newTask.status}
@@ -3492,29 +3517,38 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
 
       {/* Task Detail Dialog */}
       <Dialog open={isTaskDetailOpen} onOpenChange={setIsTaskDetailOpen}>
-        <DialogContent className="w-[95vw] sm:max-w-[600px] md:max-w-[720px] lg:max-w-[800px] max-h-[85vh] overflow-y-auto">
+        <DialogContent className="w-[95vw] sm:max-w-[650px] md:max-w-[750px] lg:max-w-[850px] max-h-[90vh] overflow-hidden flex flex-col rounded-2xl border-slate-200 dark:border-slate-800">
           {selectedTask && (
             <>
-              <DialogHeader>
-                <div className="flex justify-between items-center">
-                  <DialogTitle className="break-words">
-                    {isEditMode ? "Edit Task" : selectedTask.title}
-                  </DialogTitle>
+              <DialogHeader className="border-b border-slate-200 dark:border-slate-800 pb-4 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-950">
+                <div className="flex justify-between items-start gap-3">
+                  <div className="flex-1 min-w-0">
+                    <DialogTitle className="break-words text-lg sm:text-xl font-semibold text-slate-900 dark:text-slate-100">
+                      {isEditMode ? (
+                        <span className="bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">Edit Task</span>
+                      ) : (
+                        selectedTask.title
+                      )}
+                    </DialogTitle>
+                    {!isEditMode && (
+                      <DialogDescription className="break-words mt-1 text-xs sm:text-sm text-slate-600 dark:text-slate-400">View and manage task details</DialogDescription>
+                    )}
+                  </div>
                   {selectedTask.userId === account && !isEditMode && (
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" className="rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => setIsEditMode(true)}>
+                      <DropdownMenuContent align="end" className="w-48 rounded-xl">
+                        <DropdownMenuItem onClick={() => setIsEditMode(true)} className="rounded-lg cursor-pointer">
                           <Edit className="mr-2 h-4 w-4" />
                           Edit Task
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={handleDeleteTask}
-                          className="text-red-500"
+                          className="text-red-600 dark:text-red-400 rounded-lg cursor-pointer focus:bg-red-50 dark:focus:bg-red-950/30"
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
                           Delete Task
@@ -3525,23 +3559,23 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                 </div>
                 {!isEditMode && (
                   <>
-                    <DialogDescription className="break-words">Task details</DialogDescription>
-                    <div className="flex gap-2 mt-2">
+                    <div className="flex gap-1.5 sm:gap-2 mt-3 flex-wrap">
                       <Badge
                         variant="outline"
-                        className={
+                        className={cn(
+                          "rounded-full text-xs font-medium transition-colors",
                           selectedTask.priority === "high"
-                            ? "priority-badge-high"
+                            ? "bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-800"
                             : selectedTask.priority === "medium"
-                            ? "priority-badge-medium"
-                            : "priority-badge-low"
-                        }
+                            ? "bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800"
+                            : "bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-800"
+                        )}
                       >
                         {selectedTask.priority.charAt(0).toUpperCase() +
                           selectedTask.priority.slice(1)}{" "}
                         Priority
                       </Badge>
-                      <Badge variant="outline" className="bg-secondary/50">
+                      <Badge variant="outline" className="rounded-full text-xs font-medium bg-slate-100 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border-slate-300 dark:border-slate-700">
                         {selectedTask.status === "todo"
                           ? "To Do"
                           : selectedTask.status === "inprogress"
@@ -3553,32 +3587,36 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                       {selectedTask.reward && selectedTask.rewardAmount && (
                         <Badge
                           variant="outline"
-                          className="bg-purple-100 dark:bg-purple-600/20 text-purple-600 dark:text-purple-400 border-purple-200 dark:border-purple-600/50"
+                          className="rounded-full text-xs font-medium bg-gradient-to-r from-purple-100 to-indigo-100 dark:from-purple-950/30 dark:to-indigo-950/30 text-purple-700 dark:text-purple-400 border-purple-300 dark:border-purple-700"
                         >
+                          <DollarSign className="h-3 w-3 mr-0.5" />
                           {selectedTask.rewardAmount} {selectedTask.reward}
                         </Badge>
                       )}
                       {selectedTask.paid && (
                         <Badge
                           variant="outline"
-                          className="bg-green-100 dark:bg-green-600/20 text-green-600 dark:text-green-400 border-green-200 dark:border-green-600/50"
+                          className="rounded-full text-xs font-medium bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-800"
                         >
+                          <CheckCircle className="h-3 w-3 mr-0.5" />
                           Paid
                         </Badge>
                       )}
                       {selectedTask.isOpenBounty && (
                         <Badge
                           variant="outline"
-                          className="bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-200 dark:border-amber-500/40"
+                          className="rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-800"
                         >
+                          <Award className="h-3 w-3 mr-0.5" />
                           Open Bounty
                         </Badge>
                       )}
                       {selectedTask.escrowEnabled && (
                         <Badge
                           variant="outline"
-                          className="bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-500/40"
+                          className="rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-800"
                         >
+                          <Lock className="h-3 w-3 mr-0.5" />
                           {selectedTask.escrowStatus === "locked"
                             ? "Escrow Locked"
                             : "Escrow Enabled"}
@@ -3590,10 +3628,10 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
               </DialogHeader>
 
               {isEditMode ? (
-                <div className="py-4">
-                  <div className="space-y-4">
+                <div className="flex-1 overflow-y-auto py-4 px-1">
+                  <div className="space-y-5 px-1">
                     <div className="grid gap-2">
-                      <Label htmlFor="edit-title">Title</Label>
+                      <Label htmlFor="edit-title" className="text-sm font-medium text-slate-700 dark:text-slate-300">Task Title</Label>
                       <Input
                         id="edit-title"
                         value={editedTask.title || ""}
@@ -3603,10 +3641,11 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                             title: e.target.value,
                           })
                         }
+                        className="h-11 rounded-xl border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200"
                       />
                     </div>
                     <div className="grid gap-2">
-                      <Label htmlFor="edit-description">Description</Label>
+                      <Label htmlFor="edit-description" className="text-sm font-medium text-slate-700 dark:text-slate-300">Description</Label>
                       <Textarea
                         id="edit-description"
                         value={editedTask.description || ""}
@@ -3616,24 +3655,25 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                             description: e.target.value,
                           })
                         }
+                        className="min-h-[150px] rounded-xl border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200"
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="grid gap-2">
-                        <Label htmlFor="edit-priority">Priority</Label>
+                        <Label htmlFor="edit-priority" className="text-sm font-medium text-slate-700 dark:text-slate-300">Priority</Label>
                         <Select
                           value={editedTask.priority || "medium"}
                           onValueChange={(value) =>
                             setEditedTask({ ...editedTask, priority: value })
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="h-11 rounded-xl border-slate-300 dark:border-slate-700">
                             <SelectValue placeholder="Select priority" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="low">Low</SelectItem>
-                            <SelectItem value="medium">Medium</SelectItem>
-                            <SelectItem value="high">High</SelectItem>
+                          <SelectContent className="rounded-xl">
+                            <SelectItem value="low" className="rounded-lg">Low</SelectItem>
+                            <SelectItem value="medium" className="rounded-lg">Medium</SelectItem>
+                            <SelectItem value="high" className="rounded-lg">High</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -3652,7 +3692,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                         </div>
                       )}
                     </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <UserSearchSelect
                       label="Reviewer"
@@ -3665,9 +3705,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                     />
                   </div>
                 </div>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="grid gap-2">
-                        <Label htmlFor="edit-reward">Reward</Label>
+                        <Label htmlFor="edit-reward" className="text-sm font-medium text-slate-700 dark:text-slate-300">Reward Token</Label>
                         <Select
                           value={editedTask.reward || "no_reward"}
                           onValueChange={(value) =>
@@ -3677,18 +3717,18 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                             })
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger className="h-11 rounded-xl border-slate-300 dark:border-slate-700">
                             <SelectValue placeholder="Select token" />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="no_reward">No Reward</SelectItem>
-                            <SelectItem value="USDC">USDC</SelectItem>
-                            <SelectItem value="USDT">USDT</SelectItem>
+                          <SelectContent className="rounded-xl">
+                            <SelectItem value="no_reward" className="rounded-lg">No Reward</SelectItem>
+                            <SelectItem value="USDC" className="rounded-lg">USDC</SelectItem>
+                            <SelectItem value="USDT" className="rounded-lg">USDT</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="grid gap-2">
-                        <Label htmlFor="edit-rewardAmount">Amount</Label>
+                        <Label htmlFor="edit-rewardAmount" className="text-sm font-medium text-slate-700 dark:text-slate-300">Amount</Label>
                         <Input
                           id="edit-rewardAmount"
                           type="number"
@@ -3704,14 +3744,15 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                           }
                           placeholder="0.00"
                           disabled={!editedTask.reward}
+                          className="h-11 rounded-xl border-slate-300 dark:border-slate-700"
                         />
                       </div>
                     </div>
                 <div className="grid gap-4">
-                  <div className="flex items-start justify-between rounded-md border p-3">
+                  <div className="flex items-start justify-between rounded-xl border border-slate-300 dark:border-slate-700 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 p-4 transition-all duration-200 hover:border-amber-300 dark:hover:border-amber-700">
                     <div className="pr-4">
-                      <Label className="text-sm font-medium">Open Bounty</Label>
-                      <p className="text-xs text-muted-foreground">
+                      <Label className="text-sm font-medium text-slate-900 dark:text-slate-100">Open Bounty</Label>
+                      <p className="text-xs text-slate-600 dark:text-slate-400 mt-1">
                         Allow contributors to submit proposals.
                       </p>
                     </div>
@@ -3730,7 +3771,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                 </div>
                     <div className="grid gap-2">
                       <TagsSelect
-                        label="TAGS"
+                        label="Tags"
                         selected={editedTask.tags || []}
                         onChange={(tags) => setEditedTask({ ...editedTask, tags })}
                         options={specialtyOptions}
@@ -3739,116 +3780,144 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                   </div>
                 </div>
               ) : (
-                <div className="py-4">
-                  <div className="mb-4">
-                    <h3 className="text-sm font-medium mb-1">Description</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {selectedTask.description}
+                <div className="flex-1 overflow-y-auto py-4 px-1">
+                  <div className="space-y-4 px-1">
+                  {/* Description Section */}
+                  <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 p-4">
+                    <h3 className="text-sm font-semibold mb-2 text-slate-900 dark:text-slate-100 flex items-center gap-2">
+                      <FileText className="h-4 w-4 text-purple-500" />
+                      Description
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400 leading-relaxed">
+                      {selectedTask.description || "No description provided"}
                     </p>
                   </div>
 
-                  <div className="mb-4">
-                    <h3 className="text-sm font-medium mb-1">Task Owner</h3>
-                    <div className="flex items-center gap-2">
-                      <FileEdit className="h-4 w-4 text-purple-500" />
-                      <span className="text-sm">
-                        {selectedTask.userId === account
-                          ? "You"
-                          : selectedTask.userId.substring(0, 10) + "..."}
-                      </span>
-                    </div>
-                  </div>
-
-                  {selectedTask.assignee ? (
-                    <div className="mb-4">
-                      <h3 className="text-sm font-medium mb-1">Assigned to</h3>
+                  {/* Task Details Grid */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Task Owner */}
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4">
+                      <h3 className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-2">Task Owner</h3>
                       <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage
-                            src={
-                              selectedTask.assignee.profilePicture ||
-                              "/placeholder.svg"
-                            }
-                            alt={selectedTask.assignee.username}
-                          />
-                          <AvatarFallback>
-                            {selectedTask.assignee.username.substring(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm">
-                          {selectedTask.assignee.username}
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-purple-100 dark:bg-purple-950/30">
+                          <FileEdit className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                        </div>
+                        <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                          {selectedTask.userId === account
+                            ? "You"
+                            : selectedTask.userId.substring(0, 10) + "..."}
                         </span>
                       </div>
                     </div>
-                  ) : (
-                    <div className="mb-4">
-                      <h3 className="text-sm font-medium mb-1">Assigned to</h3>
-                      <div className="flex items-center gap-2">
-                        <User className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">
-                          Unassigned
-                        </span>
-                      </div>
-                    </div>
-                  )}
 
-                  <div className="mb-4">
-                    <h3 className="text-sm font-medium mb-1">Reviewer</h3>
-                    {selectedTask.reviewer ? (
-                      <div className="flex items-center gap-2">
-                        <Avatar className="h-6 w-6">
-                          <AvatarImage
-                            src={
-                              selectedTask.reviewer.profilePicture ||
-                              "/placeholder.svg"
-                            }
-                            alt={selectedTask.reviewer.username}
-                          />
-                          <AvatarFallback>
-                            {selectedTask.reviewer.username.substring(0, 2)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="text-sm">
-                          {selectedTask.reviewer.username}
-                        </span>
+                    {/* Assigned To */}
+                    {selectedTask.assignee ? (
+                      <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4">
+                        <h3 className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-2">Assigned To</h3>
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-8 w-8 ring-2 ring-slate-200 dark:ring-slate-800">
+                            <AvatarImage
+                              src={
+                                selectedTask.assignee.profilePicture ||
+                                "/placeholder.svg"
+                              }
+                              alt={selectedTask.assignee.username}
+                            />
+                            <AvatarFallback className="text-xs">
+                              {selectedTask.assignee.username.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                            {selectedTask.assignee.username}
+                          </span>
+                        </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No reviewer assigned
-                      </p>
+                      <div className="rounded-xl border border-dashed border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50 p-4">
+                        <h3 className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-2">Assigned To</h3>
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 dark:bg-slate-800">
+                            <User className="h-4 w-4 text-slate-400 dark:text-slate-600" />
+                          </div>
+                          <span className="text-sm text-slate-500 dark:text-slate-500">
+                            Unassigned
+                          </span>
+                        </div>
+                      </div>
                     )}
-                  </div>
 
-                  <div className="mb-4">
-                    <h3 className="text-sm font-medium mb-1">Created</h3>
-                    <div className="flex items-center gap-2">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">
-                        {selectedTask.createdAt
-                          ? format(new Date(selectedTask.createdAt), "PPP")
-                          : "Unknown date"}
-                      </p>
+                    {/* Reviewer */}
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4">
+                      <h3 className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-2">Reviewer</h3>
+                      {selectedTask.reviewer ? (
+                        <div className="flex items-center gap-2">
+                          <Avatar className="h-8 w-8 ring-2 ring-slate-200 dark:ring-slate-800">
+                            <AvatarImage
+                              src={
+                                selectedTask.reviewer.profilePicture ||
+                                "/placeholder.svg"
+                              }
+                              alt={selectedTask.reviewer.username}
+                            />
+                            <AvatarFallback className="text-xs">
+                              {selectedTask.reviewer.username.substring(0, 2).toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                            {selectedTask.reviewer.username}
+                          </span>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-slate-500 dark:text-slate-500">
+                          No reviewer assigned
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Created Date */}
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4">
+                      <h3 className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-2">Created</h3>
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800">
+                          <Calendar className="h-4 w-4 text-slate-600 dark:text-slate-400" />
+                        </div>
+                        <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
+                          {selectedTask.createdAt
+                            ? format(new Date(selectedTask.createdAt), "PPP")
+                            : "Unknown date"}
+                        </p>
+                      </div>
                     </div>
                   </div>
 
                   {/* Show payment status if task has a reward */}
                   {selectedTask.reward && selectedTask.rewardAmount && (
-                    <div className="mb-4">
-                      <h3 className="text-sm font-medium mb-1">
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4">
+                      <h3 className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-3">
                         Payment Status
                       </h3>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2.5">
                         {selectedTask.paid ? (
                           <>
-                            <CheckCircle className="h-4 w-4 text-green-500" />
-                            <span className="text-sm text-green-500">Paid</span>
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-100 dark:bg-green-950/30">
+                              <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400" />
+                            </div>
+                            <div>
+                              <span className="text-sm font-semibold text-green-700 dark:text-green-400">Paid</span>
+                              <p className="text-xs text-slate-500 dark:text-slate-500">Payment completed</p>
+                            </div>
                           </>
                         ) : (
                           <>
-                            <AlertCircle className="h-4 w-4 text-yellow-500" />
-                            <span className="text-sm text-yellow-500">
-                              Pending Payment
-                            </span>
+                            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-950/30">
+                              <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                            </div>
+                            <div>
+                              <span className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                                Pending Payment
+                              </span>
+                              <p className="text-xs text-slate-500 dark:text-slate-500">Awaiting disbursement</p>
+                            </div>
                           </>
                         )}
                       </div>
@@ -3856,63 +3925,77 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                   )}
 
                   {selectedTask.isOpenBounty && (
-                    <div className="mb-4 rounded-md border border-dashed border-amber-200 bg-amber-50/70 dark:border-amber-500/40 dark:bg-amber-500/10 p-3">
-                      <p className="text-sm font-medium text-amber-800 dark:text-amber-200">
-                        Open bounty is active
-                      </p>
-                      <p className="text-xs text-amber-700 dark:text-amber-100/80 mt-1">
-                        Contributors can submit proposals. Approve one to assign
-                        the task automatically.
-                      </p>
+                    <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-amber-200 dark:bg-amber-900/50">
+                          <Award className="h-4 w-4 text-amber-700 dark:text-amber-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                            Open bounty is active
+                          </p>
+                          <p className="text-xs text-amber-700 dark:text-amber-300 mt-1">
+                            Contributors can submit proposals. Approve one to assign the task automatically.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
 
                   {selectedTask.escrowEnabled && (
-                    <div className="mb-4 rounded-md border border-dashed border-blue-200 bg-blue-50/70 dark:border-blue-500/40 dark:bg-blue-500/10 p-3">
-                      <p className="text-sm font-medium text-blue-800 dark:text-blue-200">
-                        Escrow enabled
-                      </p>
-                      <p className="text-xs text-blue-700 dark:text-blue-100/80 mt-1">
-                        Payment is locked in escrow until the owner releases it.
-                      </p>
+                    <div className="rounded-xl border border-blue-300 dark:border-blue-800 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/20 dark:to-cyan-950/20 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-200 dark:bg-blue-900/50">
+                          <Lock className="h-4 w-4 text-blue-700 dark:text-blue-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-semibold text-blue-900 dark:text-blue-200">
+                            Escrow enabled
+                          </p>
+                          <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
+                            Payment is locked in escrow until the owner releases it.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
 
                   {selectedTask.submission && (
-                    <div className="mb-4">
-                      <h3 className="text-sm font-medium mb-1">Submission</h3>
-                      <div className="rounded-md border p-3 bg-gray-50 dark:bg-[#2a2a2a] border-gray-200 dark:border-[#333]">
-                        <div className="flex justify-between items-center mb-2">
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 overflow-hidden">
+                      <h3 className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-3">Work Submission</h3>
+                      <div className="rounded-lg bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 p-4 border border-slate-200 dark:border-slate-800">
+                        <div className="flex justify-between items-center mb-3 flex-wrap gap-2">
                           <Badge
                             variant="outline"
-                            className={
+                            className={cn(
+                              "rounded-full text-xs font-medium",
                               selectedTask.submission.status === "approved"
-                                ? "bg-green-100 dark:bg-green-500/20 text-green-600 dark:text-green-500 border-green-200 dark:border-green-500/50"
+                                ? "bg-green-100 dark:bg-green-950/30 text-green-700 dark:text-green-400 border-green-300 dark:border-green-800"
                                 : selectedTask.submission.status === "rejected"
-                                ? "bg-red-100 dark:bg-red-500/20 text-red-600 dark:text-red-500 border-red-200 dark:border-red-500/50"
-                                : "bg-yellow-100 dark:bg-yellow-500/20 text-yellow-600 dark:text-yellow-500 border-yellow-200 dark:border-yellow-500/50"
-                            }
+                                ? "bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-400 border-red-300 dark:border-red-800"
+                                : "bg-amber-100 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 border-amber-300 dark:border-amber-800"
+                            )}
                           >
                             {selectedTask.submission.status
                               .charAt(0)
                               .toUpperCase() +
                               selectedTask.submission.status.slice(1)}
                           </Badge>
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-xs text-slate-500 dark:text-slate-500">
                             {format(
                               new Date(selectedTask.submission.submittedAt),
                               "PPp"
                             )}
                           </span>
                         </div>
-                        <p className="text-sm">
+                        <p className="text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
                           {selectedTask.submission.content}
                         </p>
 
                         {selectedTask.submission.feedback && (
-                          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-[#333]">
-                            <p className="text-xs font-medium">Feedback:</p>
-                            <p className="text-sm">
+                          <div className="mt-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+                            <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-1">Feedback:</p>
+                            <p className="text-sm text-slate-600 dark:text-slate-400">
                               {selectedTask.submission.feedback}
                             </p>
                           </div>
@@ -3922,8 +4005,8 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                   )}
 
                   {selectedTask.proposals && selectedTask.proposals.length > 0 && (
-                    <div className="mb-4">
-                      <h3 className="text-sm font-medium mb-2">Proposals</h3>
+                    <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4">
+                      <h3 className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-3">Contributor Proposals ({selectedTask.proposals.length})</h3>
                       <div className="space-y-3 max-h-72 overflow-auto pr-1">
                         {selectedTask.proposals.map((proposal) => {
                           const isApplicant =
@@ -3932,7 +4015,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                           return (
                             <div
                               key={proposal.id}
-                              className="rounded-lg border p-3 bg-white dark:bg-[#1e1e1e] border-gray-200 dark:border-[#333]"
+                              className="rounded-xl border border-slate-200 dark:border-slate-800 p-4 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-950 transition-all duration-200 hover:shadow-md"
                             >
                               <div className="flex items-center justify-between mb-2">
                                 <div>
@@ -3982,8 +4065,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                                         )
                                       }
                                       disabled={isManagingProposal}
-                                      className="gradient-button px-3"
+                                      className="rounded-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-md transition-all duration-300 hover:scale-105"
                                     >
+                                      <Check className="h-3.5 w-3.5 mr-1" />
                                       Approve
                                     </Button>
                                     <Button
@@ -3996,7 +4080,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                                         )
                                       }
                                       disabled={isManagingProposal}
+                                      className="rounded-full border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-300"
                                     >
+                                      <X className="h-3.5 w-3.5 mr-1" />
                                       Reject
                                     </Button>
                                   </div>
@@ -4008,23 +4094,32 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                     </div>
                   )}
                 </div>
+                </div>
               )}
 
-              <DialogFooter>
+              <DialogFooter className="border-t border-slate-200 dark:border-slate-800 pt-4 bg-gradient-to-r from-slate-50 to-white dark:from-slate-900 dark:to-slate-950">
                 {isEditMode ? (
-                  <div className="flex justify-end gap-2">
+                  <div className="flex justify-end gap-2 w-full">
                     <Button
                       variant="outline"
                       onClick={() => setIsEditMode(false)}
+                      className="rounded-xl border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300"
                     >
                       Cancel
                     </Button>
                     <Button
                       onClick={handleEditTask}
                       disabled={isLoading}
-                      className="gradient-button"
+                      className="rounded-xl bg-gradient-to-r from-indigo-600 via-purple-600 to-fuchsia-600 hover:from-indigo-700 hover:via-purple-700 hover:to-fuchsia-700 text-white shadow-lg shadow-purple-500/30 transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
                     >
-                      {isLoading ? "Updating..." : "Update Task"}
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        "Update Task"
+                      )}
                     </Button>
                   </div>
                 ) : (
@@ -4065,15 +4160,18 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                                 setProposalContent("");
                                 handleProposalDialogChange(true);
                               }}
+                              className="rounded-xl border-slate-300 dark:border-slate-700 hover:border-amber-400 hover:text-amber-600 dark:hover:border-amber-500 dark:hover:text-amber-400 transition-all duration-300"
                             >
+                              <Award className="h-4 w-4 mr-2" />
                               Submit Proposal
                             </Button>
                           )}
                           {canSubmitWork && (
                             <Button
                               onClick={() => setIsSubmitDialogOpen(true)}
-                              className="gradient-button"
+                              className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg transition-all duration-300 hover:scale-[1.02]"
                             >
+                              <FileText className="h-4 w-4 mr-2" />
                               Submit Work
                             </Button>
                           )}
@@ -4084,15 +4182,27 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                               <Button
                                 variant="outline"
                                 onClick={handleRejectSubmission}
+                                className="rounded-xl border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-300"
                               >
+                                <X className="h-4 w-4 mr-2" />
                                 Reject
                               </Button>
                               <Button
                                 onClick={handleApproveSubmission}
                                 disabled={isLoading}
-                                className="gradient-button"
+                                className="rounded-xl bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white shadow-lg transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
                               >
-                                {isLoading ? "Approving..." : "Approve"}
+                                {isLoading ? (
+                                  <>
+                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                    Approving...
+                                  </>
+                                ) : (
+                                  <>
+                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                    Approve
+                                  </>
+                                )}
                               </Button>
                             </>
                           )}
@@ -4110,37 +4220,49 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
 
       {/* Submit Work Dialog */}
       <Dialog open={isSubmitDialogOpen} onOpenChange={setIsSubmitDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Submit Work</DialogTitle>
-            <DialogDescription>
-              Please provide a link to your work submission.
+        <DialogContent className="sm:max-w-md rounded-2xl border-slate-200 dark:border-slate-800">
+          <DialogHeader className="border-b border-slate-200 dark:border-slate-800 pb-4">
+            <DialogTitle className="text-lg font-semibold bg-gradient-to-r from-indigo-600 to-purple-600 dark:from-indigo-400 dark:to-purple-400 bg-clip-text text-transparent">Submit Work</DialogTitle>
+            <DialogDescription className="text-sm text-slate-600 dark:text-slate-400">
+              Provide details or a link to your completed work.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="submission">Submission Content</Label>
+              <Label htmlFor="submission" className="text-sm font-medium text-slate-700 dark:text-slate-300">Submission Content</Label>
               <Textarea
                 id="submission"
-                placeholder="Paste your link here..."
+                placeholder="Paste your link or describe your work here..."
                 value={submissionContent}
                 onChange={(e) => setSubmissionContent(e.target.value)}
+                className="min-h-[150px] rounded-xl border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-purple-500/20 transition-all duration-200"
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t border-slate-200 dark:border-slate-800 pt-4">
             <Button
               variant="outline"
               onClick={() => setIsSubmitDialogOpen(false)}
+              className="rounded-xl border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSubmitWork}
               disabled={isSubmitting}
-              className="gradient-button"
+              className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
             >
-              {isSubmitting ? "Submitting..." : "Submit"}
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Submit
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -4150,38 +4272,49 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
         open={isProposalDialogOpen}
         onOpenChange={handleProposalDialogChange}
       >
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Submit Proposal</DialogTitle>
-            <DialogDescription>
+        <DialogContent className="sm:max-w-md rounded-2xl border-slate-200 dark:border-slate-800">
+          <DialogHeader className="border-b border-slate-200 dark:border-slate-800 pb-4">
+            <DialogTitle className="text-lg font-semibold bg-gradient-to-r from-amber-600 to-orange-600 dark:from-amber-400 dark:to-orange-400 bg-clip-text text-transparent">Submit Proposal</DialogTitle>
+            <DialogDescription className="text-sm text-slate-600 dark:text-slate-400">
               Share your approach for "{proposalTargetTask?.title}"
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="proposal-content">Proposal Details</Label>
+              <Label htmlFor="proposal-content" className="text-sm font-medium text-slate-700 dark:text-slate-300">Proposal Details</Label>
               <Textarea
                 id="proposal-content"
                 placeholder="Explain how you plan to deliver this task..."
                 value={proposalContent}
                 onChange={(e) => setProposalContent(e.target.value)}
-                className="min-h-[150px]"
+                className="min-h-[180px] rounded-xl border-slate-300 dark:border-slate-700 focus:ring-2 focus:ring-amber-500/20 transition-all duration-200"
               />
             </div>
           </div>
-          <DialogFooter>
+          <DialogFooter className="border-t border-slate-200 dark:border-slate-800 pt-4">
             <Button
               variant="outline"
               onClick={() => handleProposalDialogChange(false)}
+              className="rounded-xl border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all duration-300"
             >
               Cancel
             </Button>
             <Button
               onClick={handleSubmitProposal}
               disabled={isSubmittingProposal || !proposalContent.trim()}
-              className="gradient-button"
+              className="rounded-xl bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white shadow-lg transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100"
             >
-              {isSubmittingProposal ? "Submitting..." : "Submit Proposal"}
+              {isSubmittingProposal ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>
+                  <Award className="h-4 w-4 mr-2" />
+                  Submit Proposal
+                </>
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

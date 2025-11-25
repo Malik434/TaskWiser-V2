@@ -244,12 +244,25 @@ export function WalletConnect() {
       <div>
         {isConnected && account ? (
           <div className="flex items-center gap-2">
-            <div className="hidden rounded-full bg-primary/20 px-2 py-1 text-xs text-primary sm:block sm:px-3 sm:text-sm">
+            <div className={`hidden rounded-full px-2 py-1 text-xs font-medium sm:block sm:px-3 sm:text-sm transition-all duration-300 ${
+              isLandingPage 
+                ? "bg-gradient-to-r from-indigo-500/10 to-fuchsia-500/10 text-slate-700 dark:from-indigo-500/20 dark:to-fuchsia-500/20 dark:text-slate-300 border border-slate-300 dark:border-slate-700"
+                : "bg-primary/20 text-primary"
+            }`}>
               {userProfile?.username ||
                 cachedProfileUsername ||
                 shortenAddress(account)}
             </div>
-            <Button variant="outline" size="sm" onClick={handleDisconnect} className="text-xs sm:text-sm">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleDisconnect} 
+              className={`text-xs transition-all duration-300 sm:text-sm ${
+                isLandingPage
+                  ? "rounded-full border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-100 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:border-slate-600 dark:hover:bg-slate-800"
+                  : ""
+              }`}
+            >
               Disconnect
             </Button>
           </div>
@@ -257,9 +270,12 @@ export function WalletConnect() {
           <Button
             onClick={handleConnect}
             disabled={isConnecting || isCheckingProfile}
-            className="gap-1.5 text-xs sm:gap-2 sm:text-sm"
-            size={isLandingPage ? "lg" : "sm"}
-            variant={isLandingPage ? "default" : "default"}
+            size={isLandingPage ? "default" : "sm"}
+            className={`gap-1.5 text-xs transition-all duration-300 sm:gap-2 sm:text-sm ${
+              isLandingPage
+                ? "h-11 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 font-semibold text-white shadow-lg hover:scale-[1.02] hover:shadow-xl disabled:opacity-50 disabled:hover:scale-100"
+                : ""
+            }`}
           >
             {isConnecting || isCheckingProfile ? (
               <>

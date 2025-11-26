@@ -96,7 +96,7 @@ export function LandingFooter() {
                 </button>
               </li>
               <li>
-                <Link href="/roadmap" className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
+                <Link href="/docs" className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
                   Roadmap
                 </Link>
               </li>
@@ -111,17 +111,17 @@ export function LandingFooter() {
                 </Link>
               </li>
               <li>
-                <Link href="/blog" className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
+                <Link href="/docs" className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
                   Blog
                 </Link>
               </li>
               <li>
-                <Link href="/tutorials" className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
+                <Link href="/docs" className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
                   Tutorials
                 </Link>
               </li>
               <li>
-                <Link href="/support" className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
+                <Link href="/docs" className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
                   Support
                 </Link>
               </li>
@@ -145,10 +145,10 @@ export function LandingFooter() {
               © {new Date().getFullYear()} Task Wiser. All rights reserved.
             </p>
             <div className="flex gap-4 text-sm">
-              <Link href="/terms" className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
+              <Link href="/docs" className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
                 Terms of Service
               </Link>
-              <Link href="/privacy" className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
+              <Link href="/docs" className="text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100">
                 Privacy Policy
               </Link>
             </div>

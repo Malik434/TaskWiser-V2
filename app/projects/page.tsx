@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useWeb3 } from "@/components/web3-provider";
 import { useFirebase } from "@/components/firebase-provider";
 import type { Project, ProjectMember, UserProfile } from "@/lib/types";
-import { PlusCircle, Calendar, MoreHorizontal, Users, Shield, UserPlus, UserMinus, Eye, Edit, Archive, Loader2 } from "lucide-react";
+import { PlusCircle, Calendar, MoreHorizontal, Users, Shield, UserPlus, UserMinus, Eye, Edit, Archive, Loader2, Sparkles, Briefcase, Check, X, Mail, Crown, Target, ArrowRight, Folder } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -15,19 +15,19 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/use-toast";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/switch";
 import { UserSearchSelect } from "@/components/user-search-select";
 import { cn } from "@/lib/utils";
+import { ProtectedRoute } from "@/components/protected-route";
 
 export default function ProjectsPage() {
   const router = useRouter();
-  const { isConnected, account } = useWeb3();
+  const { account } = useWeb3();
   const { user, addProject, getProjects, updateProject, getUserProfiles, getUserProfile, deleteProject, inviteUserToProject, getProjectInvitationsForUser, respondToProjectInvitation, uploadProjectLogo } = useFirebase();
   const { toast } = useToast();
-  const [isClient, setIsClient] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [isAddProjectDialogOpen, setIsAddProjectDialogOpen] = useState(false);
   const [isMembersDialogOpen, setIsMembersDialogOpen] = useState(false);
@@ -53,16 +53,10 @@ export default function ProjectsPage() {
   const [editProjectLogoFile, setEditProjectLogoFile] = useState<File | null>(null);
   const [isUploadingLogo, setIsUploadingLogo] = useState<boolean>(false);
 
-  // This effect ensures we only check wallet connection status on the client side
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-
   useEffect(() => {
     if (account) {
       fetchProjects();
       loadAvailableUsers();
-      // Removed immediate loadInvitations here to avoid race
     }
   }, [account]);
 
@@ -520,75 +514,149 @@ export default function ProjectsPage() {
     }
   };
 
-  // If we're on the server or haven't initialized client-side yet, return nothing to avoid hydration issues
-  if (!isClient) {
-    return null;
-  }
-
   return (
-    <>
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-4 dark-header sm:h-16 sm:px-6">
-        <h1 className="text-lg font-bold sm:text-xl md:ml-0 ml-12">Projects</h1>
-        <div className="flex items-center gap-2 sm:gap-4">
-          <ThemeToggle />
-          <div className="hidden sm:block">
-            <WalletConnect />
-          </div>
-        </div>
-      </header>
-      <main className="animate-in fade-in duration-500 p-3 sm:p-4 md:p-6">
-        {pendingInvitations.length > 0 && (
-          <Card className="mb-4 dark-card sm:mb-6">
-            <CardHeader className="p-4 sm:p-6">
-              <CardTitle className="text-base sm:text-lg">Pending Invitations</CardTitle>
-              <CardDescription className="text-xs sm:text-sm">Accept an invitation to join a project.</CardDescription>
-            </CardHeader>
-            <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
-              {isLoadingInvites ? (
-                <div className="flex items-center gap-2 text-xs text-muted-foreground sm:text-sm">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" /> Loading invitations...
+    <ProtectedRoute>
+      <div className="flex h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 transition-colors">
+        <div className="flex-1 overflow-auto">
+          {/* Enhanced Header */}
+          <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80">
+            <div className="flex h-16 items-center justify-between px-4 sm:px-6">
+              <div className="flex items-center gap-3 md:ml-0 ml-12">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 shadow-lg">
+                  <Briefcase className="h-5 w-5 text-white" />
                 </div>
-              ) : (
-                <div className="space-y-2 sm:space-y-3">
-                  {pendingInvitations.map((inv) => (
-                    <div key={inv.id} className="flex flex-col gap-2 p-2 border rounded-lg dark:border-gray-700 sm:flex-row sm:items-center sm:justify-between sm:p-3">
-                      <div className="flex items-center gap-2 sm:gap-3">
-                        <Users className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                        <div className="flex flex-col">
-                          <span className="text-sm font-medium sm:text-base">{inv.projectTitle || "Project"}</span>
-                          <span className="text-[10px] text-muted-foreground sm:text-xs">Invited by {inv.inviterAddress?.substring(0, 10)}...</span>
-                        </div>
+                <div>
+                  <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+                    Projects
+                  </h1>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    Manage your workspaces
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 sm:gap-4">
+                <ThemeToggle />
+                <div className="hidden sm:block">
+                  <WalletConnect />
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <main className="animate-in fade-in duration-500 p-4 sm:p-6">
+            <div className="mx-auto max-w-7xl space-y-6">
+              {/* Pending Invitations */}
+              {pendingInvitations.length > 0 && (
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white/80 shadow-lg backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/80">
+                  <div className="border-b border-slate-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-6 dark:border-slate-800 dark:from-indigo-950/30 dark:to-purple-950/30">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 shadow-lg">
+                        <Mail className="h-6 w-6 text-white" />
                       </div>
-                      <div className="flex gap-2">
-                        <Button size="sm" className="gradient-button text-xs sm:text-sm" onClick={() => handleAcceptInvitation(inv)}>Accept</Button>
-                        <Button size="sm" variant="outline" className="text-xs sm:text-sm" onClick={() => handleRejectInvitation(inv)}>Reject</Button>
+                      <div>
+                        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+                          Pending Invitations
+                        </h3>
+                        <p className="text-sm text-slate-600 dark:text-slate-400">
+                          {pendingInvitations.length} invitation{pendingInvitations.length !== 1 ? 's' : ''} waiting
+                        </p>
                       </div>
                     </div>
-                  ))}
+                  </div>
+                  <div className="p-6">
+                    {isLoadingInvites ? (
+                      <div className="flex items-center justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-indigo-600 dark:text-indigo-400" />
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {pendingInvitations.map((inv) => (
+                          <div
+                            key={inv.id}
+                            className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/50 p-4 transition-all hover:bg-slate-100/50 dark:border-slate-800 dark:bg-slate-800/30 dark:hover:bg-slate-800/50 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500">
+                                <Folder className="h-5 w-5 text-white" />
+                              </div>
+                              <div>
+                                <p className="font-semibold text-slate-900 dark:text-slate-50">
+                                  {inv.projectTitle || "Project"}
+                                </p>
+                                <p className="text-xs text-slate-600 dark:text-slate-400">
+                                  Invited by {inv.inviterAddress?.substring(0, 6)}...{inv.inviterAddress?.substring(38)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                onClick={() => handleAcceptInvitation(inv)}
+                                className="flex-1 gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 font-semibold text-white shadow-lg transition-all hover:scale-105 sm:flex-none"
+                              >
+                                <Check className="h-4 w-4" />
+                                Accept
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => handleRejectInvitation(inv)}
+                                className="flex-1 rounded-xl border-slate-300 hover:bg-red-50 hover:text-red-600 dark:border-slate-700 dark:hover:bg-red-950/30 sm:flex-none"
+                              >
+                                <X className="h-4 w-4" />
+                                Reject
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        )}
-          <div className="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-xl font-bold sm:text-2xl">My Projects</h2>
-            <Dialog
-              open={isAddProjectDialogOpen}
-              onOpenChange={setIsAddProjectDialogOpen}
-            >
-              <DialogTrigger asChild>
-                <Button className="gradient-button w-full text-sm sm:w-auto sm:text-base">
-                  <PlusCircle className="mr-2 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  Add New Project
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[425px] dark-card">
-                <DialogHeader>
-                  <DialogTitle>Create New Project</DialogTitle>
+              {/* Header Section */}
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+                    <Sparkles className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                    Your Workspaces
+                  </div>
+                  <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+                    My Projects
+                  </h2>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    {projects.length} active workspace{projects.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+                <Dialog
+                  open={isAddProjectDialogOpen}
+                  onOpenChange={setIsAddProjectDialogOpen}
+                >
+                  <DialogTrigger asChild>
+                    <Button className="h-12 gap-2 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 px-6 font-semibold text-white shadow-[0_10px_40px_rgba(99,102,241,0.4)] transition-all hover:scale-[1.02] hover:shadow-[0_15px_50px_rgba(99,102,241,0.5)]">
+                      <PlusCircle className="h-5 w-5" />
+                      Create Project
+                    </Button>
+                  </DialogTrigger>
+              <DialogContent className="rounded-2xl sm:max-w-[500px]">
+                <DialogHeader className="border-b border-slate-200 pb-4 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 shadow-lg">
+                      <PlusCircle className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-50">
+                        Create New Project
+                      </DialogTitle>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Set up your collaborative workspace
+                      </p>
+                    </div>
+                  </div>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="name" className="dark:text-gray-300">
+                <div className="space-y-5 py-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="name" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                       Project Name
                     </Label>
                     <Input
@@ -597,12 +665,12 @@ export default function ProjectsPage() {
                       onChange={(e) =>
                         setNewProject({ ...newProject, title: e.target.value })
                       }
-                      placeholder="Enter project name"
-                      className="dark-input"
+                      placeholder="Enter a memorable project name"
+                      className="h-11 rounded-xl border-slate-300 dark:border-slate-700"
                     />
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="description" className="dark:text-gray-300">
+                  <div className="space-y-2">
+                    <Label htmlFor="description" className="text-sm font-medium text-slate-700 dark:text-slate-300">
                       Description
                     </Label>
                     <Textarea
@@ -614,16 +682,20 @@ export default function ProjectsPage() {
                           description: e.target.value,
                         })
                       }
-                      placeholder="Enter project description"
-                      className="dark-input"
+                      placeholder="Describe what this project is about..."
+                      className="min-h-[100px] rounded-xl border-slate-300 dark:border-slate-700"
                     />
                   </div>
-                  <div className="grid gap-2">
-                    <Label className="dark:text-gray-300">Project Logo</Label>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="h-12 w-12">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Project Logo
+                    </Label>
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-16 w-16 border-2 border-slate-200 shadow-lg dark:border-slate-700">
                         <AvatarImage src={newProjectLogoPreview || "/placeholder.svg"} />
-                        <AvatarFallback>PR</AvatarFallback>
+                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white text-lg font-semibold">
+                          {newProject.title?.substring(0, 2).toUpperCase() || "PR"}
+                        </AvatarFallback>
                       </Avatar>
                       <Input
                         type="file"
@@ -635,372 +707,505 @@ export default function ProjectsPage() {
                             setNewProjectLogoPreview(URL.createObjectURL(f));
                           }
                         }}
-                        className="dark-input"
+                        className="rounded-xl border-slate-300 dark:border-slate-700"
                       />
                     </div>
                   </div>
                 </div>
-                <div className="flex justify-end">
+                <div className="flex gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsAddProjectDialogOpen(false)}
+                    className="flex-1 rounded-xl"
+                  >
+                    Cancel
+                  </Button>
                   <Button
                     onClick={handleAddProject}
-                    className="gradient-button"
+                    disabled={isUploadingLogo}
+                    className="flex-1 gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 font-semibold text-white shadow-lg"
                   >
-                    Create Project
+                    {isUploadingLogo ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <PlusCircle className="h-4 w-4" />
+                        Create Project
+                      </>
+                    )}
                   </Button>
                 </div>
               </DialogContent>
             </Dialog>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 sm:gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3">
-            {projects.map((project) => (
-              <Card
-                key={project.id}
-                className={`overflow-hidden transition-all hover:shadow-lg cursor-pointer dark-card ${getProjectCardClass(
-                  project.status
-                )}`}
-                onClick={() => router.push(`/projects/${project.id}`)}
-              >
-                <CardHeader className="p-3 pb-2 sm:p-6 sm:pb-2">
-                  <div className="flex justify-between items-start">
-                    <div className="min-w-0 flex-1">
-                      <CardTitle className="text-base sm:text-lg md:text-xl truncate">{project.title}</CardTitle>
-                      <CardDescription className="mt-1 text-xs dark:text-gray-400 sm:text-sm">
-                        {new Date(project.createdAt).toLocaleDateString()}
-                      </CardDescription>
-                    </div>
-                    {/* Only show dropdown if user is admin */}
-                    {isAdmin(project) ? (
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 flex-shrink-0 dark:hover:bg-gray-700 sm:h-8 sm:w-8"
-                          >
-                            <MoreHorizontal className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            <span className="sr-only">Open menu</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent
-                          align="end"
-                          className="dark-dropdown"
-                        >
-                          <DropdownMenuItem 
-                            className="dark:hover:bg-gray-700"
-                            onClick={(e) => handleEditProject(project, e)}
-                          >
-                            <Edit className="mr-2 h-4 w-4" />
-                            Edit Project
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="dark:hover:bg-gray-700"
-                            onClick={(e) => handleOpenMembersDialog(project, e)}
-                          >
-                            <Users className="mr-2 h-4 w-4" />
-                            Manage Contributors
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="dark:hover:bg-gray-700"
-                            onClick={(e) => handleArchiveProject(project, e)}
-                          >
-                            <Archive className="mr-2 h-4 w-4" />
-                            {project.status === "archived" ? "Restore Project" : "Archive Project"}
-                          </DropdownMenuItem>
-                          <DropdownMenuItem 
-                            className="dark:hover:bg-gray-700 text-red-600"
-                            onClick={(e) => handleDeleteProject(project, e)}
-                          >
-                            {/* Trash icon reused from users minus for consistency */}
-                            <UserMinus className="mr-2 h-4 w-4" />
-                            Delete Project
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    ) : (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-7 w-7 flex-shrink-0 dark:hover:bg-gray-700 sm:h-8 sm:w-8"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleViewDetails(project, e);
-                        }}
-                      >
-                        <Eye className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                        <span className="sr-only">View details</span>
-                      </Button>
-                    )}
+              {/* Projects Grid */}
+              {projects.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-16 text-center dark:border-slate-700 dark:bg-slate-900/30">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-950/50 dark:to-purple-950/50">
+                    <Briefcase className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
                   </div>
-                </CardHeader>
-                <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2 sm:text-sm">
-                    {project.description || "No description provided."}
+                  <p className="mt-4 text-lg font-semibold text-slate-900 dark:text-slate-50">
+                    No projects yet
                   </p>
-                </CardContent>
-                <CardFooter className="flex flex-col gap-2 p-3 pt-2 border-t dark:border-gray-700 sm:flex-row sm:justify-between sm:p-6 sm:pt-4">
-                  <div className="flex items-center text-xs text-gray-500 dark:text-gray-400 sm:text-sm">
-                    <Calendar className="mr-1 h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                    <span>
-                      {new Date(project.createdAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                      })}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between sm:justify-end">
-                    <Badge className={cn(getStatusBadgeClass(project.status), "text-xs sm:text-sm")}>
-                      {project.status.charAt(0).toUpperCase() +
-                        project.status.slice(1)}
-                    </Badge>
-                    <div className="ml-3">
-                      <Avatar className="h-6 w-6 border border-background dark:border-gray-700 sm:h-8 sm:w-8">
-                        <AvatarImage
-                          src={project.logoUrl || "/placeholder.svg"}
-                          alt={project.title}
-                        />
-                        <AvatarFallback className="text-xs dark:bg-gray-700 dark:text-gray-300 sm:text-sm">
-                          {project.title?.substring(0, 2).toUpperCase() || "PJ"}
-                        </AvatarFallback>
-                      </Avatar>
-                    </div>
-                  </div>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        </main>
-
-        {/* Members Management Dialog */}
-        <Dialog open={isMembersDialogOpen} onOpenChange={setIsMembersDialogOpen}>
-          <DialogContent className="sm:max-w-[600px] dark-card max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                <Users className="h-5 w-5" />
-                Manage Contributors - {selectedProject?.title}
-              </DialogTitle>
-            </DialogHeader>
-            
-            <div className="space-y-6 py-4">
-              {/* Invite Registered Profiles */}
-              {selectedProject && isAdmin(selectedProject) && (
-                <div className="space-y-3 p-4 border rounded-lg dark:border-gray-700">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4" />
-                    <h3 className="font-semibold">Invite Registered Profiles</h3>
-                  </div>
-                  <div className="space-y-2">
-                    <UserSearchSelect
-                      label="Invite Contributor"
-                      placeholder="Search by username or wallet address..."
-                      selectedUserId={selectedInviteUserId}
-                      availableUsers={(availableUsers || []).filter(u => !selectedProject.members?.some(m => m.userId === u.id))}
-                      isLoadingUsers={isLoadingUsers}
-                      onSelectUser={setSelectedInviteUserId}
-                      emptyLabel="Clear selection"
-                    />
-                    <div className="flex justify-end">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        disabled={!selectedInviteUserId || isInvitingUserId !== null || invitedUserIds.has(selectedInviteUserId!)}
-                        onClick={() => {
-                          const user = availableUsers.find(u => u.id === selectedInviteUserId);
-                          if (user) handleInviteUser(user);
-                        }}
-                      >
-                        {isInvitingUserId && selectedInviteUserId === isInvitingUserId ? (
-                          <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Sending...</span>
-                        ) : invitedUserIds.has(selectedInviteUserId || "") ? (
-                          "Invited"
-                        ) : (
-                          "Invite"
-                        )}
-                      </Button>
-                    </div>
-                  </div>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    Create your first project to start collaborating
+                  </p>
                 </div>
-              )}
-
-              {/* Current Members List */}
-              <div className="space-y-3">
-                <h3 className="font-semibold">Current Members ({selectedProject?.members?.length || 0})</h3>
-                
-                {selectedProject?.members && selectedProject.members.length > 0 ? (
-                  <div className="space-y-2">
-                    {selectedProject.members.map((member) => {
-                      const userProfile = availableUsers.find(u => u.id === member.userId);
-                      const isCurrentUserAdmin = isAdmin(selectedProject);
-                      const isMemberAdmin = member.role === "admin";
-                      
-                      return (
-                        <div
-                          key={member.userId}
-                          className="flex items-center justify-between p-3 border rounded-lg dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
-                        >
-                          <div className="flex items-center gap-3">
-                            <Avatar className="h-10 w-10">
-                              <AvatarImage
-                                src={userProfile?.profilePicture || "/placeholder.svg"}
-                                alt={userProfile?.username || "User"}
-                              />
-                              <AvatarFallback className="dark:bg-gray-700">
-                                {userProfile?.username?.substring(0, 2).toUpperCase() || "??"}
-                              </AvatarFallback>
-                            </Avatar>
-                            <div className="flex flex-col">
-                              <span className="font-medium">
-                                {userProfile?.username || "Unknown User"}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {userProfile?.address.substring(0, 10)}...{userProfile?.address.substring(38)}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="flex items-center gap-3">
-                            <Badge
-                              className={
-                                member.role === "admin"
-                                  ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-100"
-                                  : member.role === "manager"
-                                  ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-100"
-                                  : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-100"
-                              }
-                            >
-                              {member.role === "admin" && <Shield className="h-3 w-3 mr-1" />}
-                              {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-                            </Badge>
-                            
-                            {/* Toggle Manager Role - Only show for non-admin members and only if current user is admin */}
-                            {!isMemberAdmin && isCurrentUserAdmin && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">Manager</span>
-                                <Switch
-                                  checked={member.role === "manager"}
-                                  onCheckedChange={() => handleToggleManagerRole(member)}
-                                />
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {projects.map((project) => (
+                    <Card
+                      key={project.id}
+                      className="group cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:border-slate-800 dark:bg-slate-900/80"
+                      onClick={() => router.push(`/projects/${project.id}`)}
+                    >
+                      <CardContent className="p-0">
+                        {/* Header with gradient */}
+                        <div className={`relative overflow-hidden border-b border-slate-200 p-5 dark:border-slate-800 ${
+                          project.status === "active"
+                            ? "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30"
+                            : project.status === "completed"
+                            ? "bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30"
+                            : "bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50"
+                        }`}>
+                          <div className="absolute right-0 top-0 h-full w-1/2 bg-gradient-to-l from-white/50 to-transparent dark:from-slate-900/50" />
+                          
+                          <div className="relative flex items-start justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-12 w-12 border-2 border-white shadow-lg transition-transform group-hover:scale-110 dark:border-slate-700">
+                                <AvatarImage src={project.logoUrl || "/placeholder.svg"} alt={project.title} />
+                                <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold">
+                                  {project.title?.substring(0, 2).toUpperCase() || "PJ"}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-semibold text-slate-900 truncate dark:text-slate-50">
+                                  {project.title}
+                                </h3>
+                                <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
+                                  <Calendar className="h-3 w-3" />
+                                  <span>
+                                    {new Date(project.createdAt).toLocaleDateString("en-US", {
+                                      month: "short",
+                                      day: "numeric",
+                                      year: "numeric",
+                                    })}
+                                  </span>
+                                </div>
                               </div>
-                            )}
+                            </div>
 
-                            {/* Remove Member Button - Only show for non-admin members and only if current user is admin */}
-                            {!isMemberAdmin && isCurrentUserAdmin && (
+                            {/* Actions Menu */}
+                            {isAdmin(project) ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-lg hover:bg-slate-200 dark:hover:bg-slate-700"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="rounded-xl">
+                                  <DropdownMenuItem
+                                    className="rounded-lg"
+                                    onClick={(e) => handleEditProject(project, e)}
+                                  >
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Edit Project
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="rounded-lg"
+                                    onClick={(e) => handleOpenMembersDialog(project, e)}
+                                  >
+                                    <Users className="mr-2 h-4 w-4" />
+                                    Manage Team
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="rounded-lg"
+                                    onClick={(e) => handleArchiveProject(project, e)}
+                                  >
+                                    <Archive className="mr-2 h-4 w-4" />
+                                    {project.status === "archived" ? "Restore" : "Archive"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    className="rounded-lg text-red-600 dark:text-red-400"
+                                    onClick={(e) => handleDeleteProject(project, e)}
+                                  >
+                                    <UserMinus className="mr-2 h-4 w-4" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : (
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20"
-                                onClick={() => handleRemoveMember(member)}
+                                className="h-8 w-8 rounded-lg"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleViewDetails(project, e);
+                                }}
                               >
-                                <UserMinus className="h-4 w-4" />
+                                <Eye className="h-4 w-4" />
                               </Button>
                             )}
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <p className="text-sm text-muted-foreground text-center py-8">
-                    No members yet. Add members to collaborate on this project.
-                  </p>
-                )}
-              </div>
 
-              {/* Role Permissions Info */}
-              <div className="space-y-2 p-4 bg-muted/50 rounded-lg">
-                <h4 className="text-sm font-semibold mb-2">Role Permissions:</h4>
-                <div className="space-y-1 text-xs text-muted-foreground">
-                  <div className="flex items-start gap-2">
-                    <Shield className="h-3 w-3 mt-0.5 text-purple-600" />
-                    <span><strong>Admin:</strong> Create, assign, move tasks, approve to done, handle payments</span>
+                        {/* Description */}
+                        <div className="p-5">
+                          <p className="text-sm text-slate-600 line-clamp-3 dark:text-slate-400">
+                            {project.description || "No description provided."}
+                          </p>
+                        </div>
+
+                        {/* Footer */}
+                        <div className="border-t border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-800/30">
+                          <div className="flex items-center justify-between">
+                            <Badge
+                              className={cn(
+                                "rounded-full",
+                                project.status === "active"
+                                  ? "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300"
+                                  : project.status === "completed"
+                                  ? "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
+                                  : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                              )}
+                            >
+                              {project.status === "active" && <Target className="mr-1 h-3 w-3" />}
+                              {project.status.charAt(0).toUpperCase() + project.status.slice(1)}
+                            </Badge>
+                            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                              <Users className="h-4 w-4" />
+                              <span>{project.members?.length || 0} members</span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          </main>
+
+          {/* Members Management Dialog */}
+          <Dialog open={isMembersDialogOpen} onOpenChange={setIsMembersDialogOpen}>
+              <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-[700px]">
+                <DialogHeader className="border-b border-slate-200 pb-4 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
+                      <Users className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-50">
+                        Team Management
+                      </DialogTitle>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        {selectedProject?.title}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <Users className="h-3 w-3 mt-0.5 text-blue-600" />
-                    <span><strong>Manager:</strong> Create, assign, move, approve tasks (no payments)</span>
+                </DialogHeader>
+            
+                <div className="space-y-6 py-6">
+                  {/* Invite Section */}
+                  {selectedProject && isAdmin(selectedProject) && (
+                    <div className="space-y-4 rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50 p-5 dark:border-indigo-900 dark:from-indigo-950/30 dark:to-purple-950/30">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500">
+                          <UserPlus className="h-4 w-4 text-white" />
+                        </div>
+                        <h3 className="font-semibold text-slate-900 dark:text-slate-50">
+                          Invite Contributors
+                        </h3>
+                      </div>
+                      <div className="space-y-3">
+                        <UserSearchSelect
+                          label="Search Contributors"
+                          placeholder="Search by username or wallet address..."
+                          selectedUserId={selectedInviteUserId}
+                          availableUsers={(availableUsers || []).filter(u => !selectedProject.members?.some(m => m.userId === u.id))}
+                          isLoadingUsers={isLoadingUsers}
+                          onSelectUser={setSelectedInviteUserId}
+                          emptyLabel="Clear selection"
+                        />
+                        <Button
+                          size="sm"
+                          disabled={!selectedInviteUserId || isInvitingUserId !== null || invitedUserIds.has(selectedInviteUserId!)}
+                          onClick={() => {
+                            const user = availableUsers.find(u => u.id === selectedInviteUserId);
+                            if (user) handleInviteUser(user);
+                          }}
+                          className="w-full gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 font-semibold text-white shadow-lg"
+                        >
+                          {isInvitingUserId && selectedInviteUserId === isInvitingUserId ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                              Sending Invitation...
+                            </>
+                          ) : invitedUserIds.has(selectedInviteUserId || "") ? (
+                            <>
+                              <Check className="h-4 w-4" />
+                              Invitation Sent
+                            </>
+                          ) : (
+                            <>
+                              <Mail className="h-4 w-4" />
+                              Send Invitation
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Current Members */}
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-slate-900 dark:text-slate-50">
+                        Team Members
+                      </h3>
+                      <Badge className="rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                        {selectedProject?.members?.length || 0} members
+                      </Badge>
+                    </div>
+                    
+                    {selectedProject?.members && selectedProject.members.length > 0 ? (
+                      <div className="space-y-2">
+                        {selectedProject.members.map((member) => {
+                          const userProfile = availableUsers.find(u => u.id === member.userId);
+                          const isCurrentUserAdmin = isAdmin(selectedProject);
+                          const isMemberAdmin = member.role === "admin";
+                          
+                          return (
+                            <div
+                              key={member.userId}
+                              className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 p-4 transition-all hover:bg-slate-100/50 dark:border-slate-800 dark:bg-slate-800/30 dark:hover:bg-slate-800/50"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-12 w-12 border-2 border-white shadow-md dark:border-slate-700">
+                                  <AvatarImage
+                                    src={userProfile?.profilePicture || "/placeholder.svg"}
+                                    alt={userProfile?.username || "User"}
+                                  />
+                                  <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold">
+                                    {userProfile?.username?.substring(0, 2).toUpperCase() || "??"}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="font-semibold text-slate-900 dark:text-slate-50">
+                                    {userProfile?.username || "Unknown User"}
+                                  </p>
+                                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                                    {userProfile?.address.substring(0, 10)}...{userProfile?.address.substring(38)}
+                                  </p>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-3">
+                                <Badge
+                                  className={cn(
+                                    "rounded-full",
+                                    member.role === "admin"
+                                      ? "bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300"
+                                      : member.role === "manager"
+                                      ? "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
+                                      : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                  )}
+                                >
+                                  {member.role === "admin" && <Shield className="mr-1 h-3 w-3" />}
+                                  {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                                </Badge>
+                                
+                                {/* Toggle Manager Role */}
+                                {!isMemberAdmin && isCurrentUserAdmin && (
+                                  <div className="flex items-center gap-2 rounded-lg bg-white p-2 dark:bg-slate-900">
+                                    <span className="text-xs text-slate-600 dark:text-slate-400">Manager</span>
+                                    <Switch
+                                      checked={member.role === "manager"}
+                                      onCheckedChange={() => handleToggleManagerRole(member)}
+                                    />
+                                  </div>
+                                )}
+
+                                {/* Remove Button */}
+                                {!isMemberAdmin && isCurrentUserAdmin && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30"
+                                    onClick={() => handleRemoveMember(member)}
+                                  >
+                                    <UserMinus className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center dark:border-slate-700 dark:bg-slate-900/30">
+                        <Users className="mx-auto h-10 w-10 text-slate-400" />
+                        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                          No members yet. Invite people to collaborate.
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex items-start gap-2">
-                    <UserPlus className="h-3 w-3 mt-0.5 text-gray-600" />
-                    <span><strong>Contributor:</strong> View tasks, submit work if assigned</span>
+
+                  {/* Role Permissions Info */}
+                  <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-5 dark:border-slate-800 dark:bg-slate-800/30">
+                    <h4 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-50">
+                      <Shield className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                      Role Permissions
+                    </h4>
+                    <div className="space-y-2.5 text-sm">
+                      <div className="flex items-start gap-3 rounded-lg bg-purple-50 p-3 dark:bg-purple-950/20">
+                        <Shield className="h-4 w-4 mt-0.5 text-purple-600 dark:text-purple-400" />
+                        <div>
+                          <p className="font-medium text-slate-900 dark:text-slate-50">Admin</p>
+                          <p className="text-xs text-slate-600 dark:text-slate-400">
+                            Full access: Create, assign, move tasks, approve, handle payments
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 rounded-lg bg-blue-50 p-3 dark:bg-blue-950/20">
+                        <Users className="h-4 w-4 mt-0.5 text-blue-600 dark:text-blue-400" />
+                        <div>
+                          <p className="font-medium text-slate-900 dark:text-slate-50">Manager</p>
+                          <p className="text-xs text-slate-600 dark:text-slate-400">
+                            Create, assign, move, approve tasks (no payment access)
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-start gap-3 rounded-lg bg-slate-100 p-3 dark:bg-slate-800">
+                        <UserPlus className="h-4 w-4 mt-0.5 text-slate-600 dark:text-slate-400" />
+                        <div>
+                          <p className="font-medium text-slate-900 dark:text-slate-50">Contributor</p>
+                          <p className="text-xs text-slate-600 dark:text-slate-400">
+                            View tasks and submit work when assigned
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+              </DialogContent>
+            </Dialog>
 
-        {/* Edit Project Dialog */}
-        <Dialog open={isEditProjectDialogOpen} onOpenChange={setIsEditProjectDialogOpen}>
-          <DialogContent className="sm:max-w-[425px] dark-card">
-            <DialogHeader>
-              <DialogTitle>Edit Project</DialogTitle>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-name" className="dark:text-gray-300">
-                  Project Name
-                </Label>
-                <Input
-                  id="edit-name"
-                  value={selectedProject?.title || ""}
-                  onChange={(e) =>
-                    setSelectedProject(selectedProject ? { ...selectedProject, title: e.target.value } : null)
-                  }
-                  placeholder="Enter project name"
-                  className="dark-input"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-description" className="dark:text-gray-300">
-                  Description
-                </Label>
-                <Textarea
-                  id="edit-description"
-                  value={selectedProject?.description || ""}
-                  onChange={(e) =>
-                    setSelectedProject(selectedProject ? {
-                      ...selectedProject,
-                      description: e.target.value,
-                    } : null)
-                  }
-                  placeholder="Enter project description"
-                  className="dark-input"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label className="dark:text-gray-300">Project Logo</Label>
-                <div className="flex items-center gap-3">
-                  <Avatar className="h-12 w-12">
-                    <AvatarImage src={editProjectLogoFile ? URL.createObjectURL(editProjectLogoFile) : (selectedProject?.logoUrl || "/placeholder.svg")} />
-                    <AvatarFallback>PR</AvatarFallback>
-                  </Avatar>
-                  <Input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0] || null;
-                      setEditProjectLogoFile(f);
-                    }}
-                    className="dark-input"
-                  />
+          {/* Edit Project Dialog */}
+          <Dialog open={isEditProjectDialogOpen} onOpenChange={setIsEditProjectDialogOpen}>
+              <DialogContent className="rounded-2xl sm:max-w-[500px]">
+                <DialogHeader className="border-b border-slate-200 pb-4 dark:border-slate-800">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 shadow-lg">
+                      <Edit className="h-6 w-6 text-white" />
+                    </div>
+                    <div>
+                      <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-50">
+                        Edit Project
+                      </DialogTitle>
+                      <p className="text-sm text-slate-600 dark:text-slate-400">
+                        Update project information
+                      </p>
+                    </div>
+                  </div>
+                </DialogHeader>
+                <div className="space-y-5 py-6">
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-name" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Project Name
+                    </Label>
+                    <Input
+                      id="edit-name"
+                      value={selectedProject?.title || ""}
+                      onChange={(e) =>
+                        setSelectedProject(selectedProject ? { ...selectedProject, title: e.target.value } : null)
+                      }
+                      placeholder="Enter project name"
+                      className="h-11 rounded-xl border-slate-300 dark:border-slate-700"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="edit-description" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Description
+                    </Label>
+                    <Textarea
+                      id="edit-description"
+                      value={selectedProject?.description || ""}
+                      onChange={(e) =>
+                        setSelectedProject(selectedProject ? {
+                          ...selectedProject,
+                          description: e.target.value,
+                        } : null)
+                      }
+                      placeholder="Describe your project"
+                      className="min-h-[100px] rounded-xl border-slate-300 dark:border-slate-700"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Project Logo
+                    </Label>
+                    <div className="flex items-center gap-4">
+                      <Avatar className="h-16 w-16 border-2 border-slate-200 shadow-lg dark:border-slate-700">
+                        <AvatarImage
+                          src={editProjectLogoFile ? URL.createObjectURL(editProjectLogoFile) : (selectedProject?.logoUrl || "/placeholder.svg")}
+                        />
+                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white text-lg font-semibold">
+                          {selectedProject?.title?.substring(0, 2).toUpperCase() || "PR"}
+                        </AvatarFallback>
+                      </Avatar>
+                      <Input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0] || null;
+                          setEditProjectLogoFile(f);
+                        }}
+                        className="rounded-xl border-slate-300 dark:border-slate-700"
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                variant="outline"
-                onClick={() => setIsEditProjectDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleUpdateProject}
-                className="gradient-button"
-              >
-                Update Project
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-    </>
+                <div className="flex gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsEditProjectDialogOpen(false)}
+                    className="flex-1 rounded-xl"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleUpdateProject}
+                    disabled={isUploadingLogo}
+                    className="flex-1 gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 font-semibold text-white shadow-lg"
+                  >
+                    {isUploadingLogo ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="h-4 w-4" />
+                        Save Changes
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+        </div>
+      </div>
+    </ProtectedRoute>
   );
 }

@@ -69,6 +69,7 @@ interface RewardInputProps {
   onRewardChange: (reward: string | undefined) => void;
   onAmountChange: (amount: number | undefined) => void;
   label?: string;
+  disabled?: boolean;
 }
 
 export function RewardInput({
@@ -77,6 +78,7 @@ export function RewardInput({
   onRewardChange,
   onAmountChange,
   label = "BOUNTY",
+  disabled = false,
 }: RewardInputProps) {
   const handleAmountChange = (
     event: React.ChangeEvent<HTMLInputElement>
@@ -108,6 +110,7 @@ export function RewardInput({
           onValueChange={(value) =>
             onRewardChange(value === "no_reward" ? undefined : value)
           }
+          disabled={disabled}
         >
           <SelectTrigger>
             <SelectValue />
@@ -125,6 +128,7 @@ export function RewardInput({
           value={rewardAmount ? String(rewardAmount) : ""}
           onChange={handleAmountChange}
           placeholder="Amount"
+          disabled={disabled}
         />
       </div>
     </div>

@@ -12,7 +12,7 @@ const inter = Inter({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "Web3 Project Management",
   description: "A web3 project management tool with kanban board",
-    generator: 'v0.dev'
+    generator: ''
 }
 
 export default function RootLayout({

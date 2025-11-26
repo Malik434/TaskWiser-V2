@@ -17,6 +17,7 @@ interface UserSearchSelectProps {
   onSelectUser: (userId: string | undefined) => void;
   emptyLabel?: string;
   className?: string;
+  disabled?: boolean;
 }
 
 export function UserSearchSelect({
@@ -28,6 +29,7 @@ export function UserSearchSelect({
   onSelectUser,
   emptyLabel = "Unassigned",
   className = "",
+  disabled = false,
 }: UserSearchSelectProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -53,6 +55,7 @@ export function UserSearchSelect({
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full"
+          disabled={disabled}
         />
         <div
           className={`absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-md ${
@@ -128,6 +131,7 @@ export function UserSearchSelect({
             size="sm"
             className="h-6 w-6 p-0 rounded-full ml-auto"
             onClick={() => onSelectUser(undefined)}
+            disabled={disabled}
           >
             <XCircle className="h-4 w-4" />
           </Button>

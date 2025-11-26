@@ -12,20 +12,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload, User, ArrowLeft } from "lucide-react";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Loader2, Upload, User, ArrowLeft, Mail, Hash, Wallet, Sparkles, Check, Edit2, Award, Save } from "lucide-react";
 import { useRouter } from "next/navigation";
 import {
   Card,
   CardContent,
   CardDescription,
-  CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { SPECIALTY_OPTIONS } from "@/lib/constants";
+import { ProtectedRoute } from "@/components/protected-route";
 
 export default function ProfilePage() {
-  const { account, isConnected } = useWeb3()
+  const { account } = useWeb3()
   const { getUserProfile, updateUserProfile, uploadProfilePicture } = useFirebase()
   const { toast } = useToast()
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
@@ -37,15 +36,8 @@ export default function ProfilePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [errors, setErrors] = useState<{ displayName?: string; email?: string }>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [isClient, setIsClient] = useState(false)
   const [selectedSpecialties, setSelectedSpecialties] = useState<string[]>([])
   const router = useRouter()
-
-
-  // This effect ensures we only check wallet connection status on the client side
-  useEffect(() => {
-    setIsClient(true)
-  }, [])
 
   useEffect(() => {
     if (account) {
@@ -152,13 +144,23 @@ export default function ProfilePage() {
       const sanitizedDiscord = discordUsername.trim()
       const sanitizedEmail = email.trim()
 
-      await updateUserProfile(userProfile.id, {
+      const updatePayload: Partial<UserProfile> = {
         username: sanitizedDisplayName,
         displayName: sanitizedDisplayName,
-        discordUsername: sanitizedDiscord || undefined,
-        email: sanitizedEmail || undefined,
         specialties: selectedSpecialties,
-      })
+      };
+
+      // Only include optional fields if they have values
+      // Empty fields will be omitted from the update (keeping existing values)
+      if (sanitizedDiscord) {
+        updatePayload.discordUsername = sanitizedDiscord;
+      }
+
+      if (sanitizedEmail) {
+        updatePayload.email = sanitizedEmail;
+      }
+
+      await updateUserProfile(userProfile.id, updatePayload)
 
       setUserProfile({
         ...userProfile,
@@ -186,206 +188,301 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="flex h-screen dark-container">
-      <Sidebar />
-      <div className="flex-1 overflow-auto">
-        <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b border-gray-200 bg-white/80 backdrop-blur-sm px-4 dark-header sm:h-16 sm:px-6">
-          <div className="flex items-center gap-2">
-            <h1 className="text-lg font-bold sm:text-xl md:ml-0 ml-12">Edit Profile</h1>
-          </div>
-          <div className="flex items-center gap-2 sm:gap-4">
-            <ThemeToggle />
-            <div className="hidden sm:block">
-              <WalletConnect />
-            </div>
-          </div>
-        </header>
-
-        <main className="animate-in fade-in duration-500 p-3 sm:p-4 md:p-6 pb-10">
-          <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs text-muted-foreground sm:text-sm">Account Settings</p>
-                <h2 className="text-xl font-semibold sm:text-2xl">Profile</h2>
+    <ProtectedRoute>
+      <div className="flex h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 transition-colors">
+        <Sidebar />
+        <div className="flex-1 overflow-auto">
+          {/* Enhanced Header */}
+          <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80">
+            <div className="flex h-16 items-center justify-between px-4 sm:px-6">
+              <div className="flex items-center gap-3 md:ml-0 ml-12">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 shadow-lg">
+                  <User className="h-5 w-5 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+                    Profile Settings
+                  </h1>
+                  <p className="text-xs text-slate-600 dark:text-slate-400">
+                    Manage your account information
+                  </p>
+                </div>
               </div>
-            </div>
-
-            {!isClient ? (
-              <Card className="p-6 text-center dark-card sm:p-10">
-                <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-primary sm:h-6 sm:w-6" />
-                <p className="text-sm text-muted-foreground sm:text-base">Initializing profile...</p>
-              </Card>
-            ) : !isConnected ? (
-              <Card className="p-6 text-center dark-card sm:p-10">
-                <p className="text-sm text-muted-foreground sm:text-base">Connect your wallet to view and edit your profile.</p>
-                <div className="mt-4 flex justify-center">
+              <div className="flex items-center gap-2 sm:gap-4">
+                <ThemeToggle />
+                <div className="hidden sm:block">
                   <WalletConnect />
                 </div>
-              </Card>
-            ) : isLoading ? (
-              <Card className="p-6 text-center dark-card sm:p-10">
-                <Loader2 className="mx-auto mb-3 h-5 w-5 animate-spin text-primary sm:h-6 sm:w-6" />
-                <p className="text-sm text-muted-foreground sm:text-base">Loading your profile...</p>
-              </Card>
-            ) : !userProfile ? (
-              <Card className="p-6 text-center dark-card sm:p-10">
-                <p className="text-sm text-muted-foreground sm:text-base">No profile found. Please set up your profile from the dashboard.</p>
-                <Button variant="outline" className="mt-4 text-sm sm:text-base" onClick={() => router.push("/dashboard")}>
-                  Go to Dashboard
-                </Button>
-              </Card>
-            ) : (
-              <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
-                <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
-                  <Card className="lg:col-span-1 dark-card">
-                    <CardHeader className="p-4 sm:p-6">
-                      <CardTitle className="text-base sm:text-lg">Profile Picture</CardTitle>
-                      <CardDescription className="text-xs sm:text-sm">Upload an image that represents you.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col items-center gap-3 p-4 pt-0 sm:gap-4 sm:p-6 sm:pt-0">
-                      <div className="relative">
-                        <Avatar className="h-24 w-24 border border-dashed border-muted-foreground/30 dark:border-gray-700 sm:h-28 sm:w-28">
-                          {userProfile?.profilePicture ? (
-                            <AvatarImage src={userProfile.profilePicture || "/placeholder.svg"} alt={userProfile.username} />
-                          ) : previewUrl ? (
-                            <AvatarImage src={previewUrl || "/placeholder.svg"} alt="Profile preview" />
-                          ) : (
-                            <AvatarFallback className="dark:bg-gray-700">
-                              <User className="h-8 w-8 sm:h-10 sm:w-10" />
-                            </AvatarFallback>
-                          )}
-                        </Avatar>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="outline"
-                          className="absolute bottom-0 right-0 h-8 w-8 rounded-full dark:bg-gray-700 dark:border-gray-600 sm:h-9 sm:w-9"
-                          onClick={triggerFileInput}
-                          disabled={isUploading}
-                        >
-                          {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" /> : <Upload className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
-                        </Button>
-                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
-                      </div>
-                      <p className="text-[10px] text-muted-foreground text-center sm:text-xs">Click the button to upload a new profile picture</p>
+              </div>
+            </div>
+          </header>
 
-                      <div className="w-full space-y-2">
-                        <Label htmlFor="wallet-address" className="dark:text-gray-300">
-                          Wallet Address
-                        </Label>
-                        <Input
-                          id="wallet-address"
-                          value={account ?? ""}
-                          disabled
-                          className="bg-muted dark-input dark:text-gray-300"
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card className="lg:col-span-2 dark-card">
-                    <CardHeader className="p-4 sm:p-6">
-                      <CardTitle className="text-base sm:text-lg">Basic Details</CardTitle>
-                      <CardDescription className="text-xs sm:text-sm">Update the information that your teammates will see.</CardDescription>
-                    </CardHeader>
-                    <CardContent className="grid gap-3 p-4 pt-0 sm:gap-4 sm:p-6 sm:pt-0 md:grid-cols-2">
-                      <div className="space-y-2 md:col-span-2">
-                        <Label htmlFor="display-name" className="dark:text-gray-300">
-                          Display Name
-                        </Label>
-                        <Input
-                          id="display-name"
-                          value={displayName}
-                          onChange={(e) => {
-                            setDisplayName(e.target.value)
-                            if (e.target.value.trim()) {
-                              setErrors((prev) => ({ ...prev, displayName: undefined }))
-                            }
-                          }}
-                          placeholder="e.g. Malik Ali"
-                          className={`dark-input ${errors.displayName ? "border-destructive" : ""}`}
-                        />
-                        {errors.displayName && <p className="text-sm text-destructive">{errors.displayName}</p>}
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="discord-username" className="dark:text-gray-300">
-                          Discord Username
-                        </Label>
-                        <Input
-                          id="discord-username"
-                          value={discordUsername}
-                          onChange={(e) => setDiscordUsername(e.target.value)}
-                          placeholder="username#0000"
-                          className="dark-input"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label htmlFor="email-address" className="dark:text-gray-300">
-                          Email Address
-                        </Label>
-                        <Input
-                          id="email-address"
-                          type="email"
-                          value={email}
-                          onChange={(e) => {
-                            setEmail(e.target.value)
-                            if (errors.email) {
-                              setErrors((prev) => ({ ...prev, email: undefined }))
-                            }
-                          }}
-                          placeholder="name@example.com"
-                          className={`dark-input ${errors.email ? "border-destructive" : ""}`}
-                        />
-                        {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
-                      </div>
-                    </CardContent>
-                  </Card>
+          <main className="animate-in fade-in duration-500 p-4 sm:p-6">
+            <div className="mx-auto max-w-5xl space-y-6">
+              {/* Page Header */}
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm text-slate-700 shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-800/60 dark:text-slate-300">
+                  <Sparkles className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                  Account Settings
                 </div>
+                <h2 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+                  Edit Profile
+                </h2>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                  Update your personal information and specialties
+                </p>
+              </div>
 
-                <Card className="dark-card">
-                  <CardHeader className="p-4 sm:p-6">
-                    <CardTitle className="text-base sm:text-lg">Specialties</CardTitle>
-                    <CardDescription className="text-xs sm:text-sm">Select your areas of expertise so project leads know where you shine.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-4 pt-0 sm:p-6 sm:pt-0">
-                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 sm:gap-3 md:grid-cols-3">
-                      {SPECIALTY_OPTIONS.map((opt) => {
-                        const isSelected = selectedSpecialties.includes(opt)
-                        return (
-                          <label
-                            key={opt}
-                            className={`flex items-center gap-2 rounded-md border p-2 text-xs transition hover:border-primary/60 sm:text-sm ${
-                              isSelected ? "border-primary bg-primary/5 text-primary" : "border-border bg-muted/40 dark:bg-gray-800/50"
-                            }`}
-                          >
-                            <Checkbox checked={isSelected} onCheckedChange={() => toggleSpecialty(opt)} />
-                            <span className="truncate">{opt}</span>
-                          </label>
-                        )
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="flex justify-end">
-                  <Button type="submit" disabled={isLoading} className="w-full min-w-0 text-sm dark:bg-primary dark:hover:bg-primary/90 sm:w-auto sm:min-w-[140px] sm:text-base">
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" />
-                        Saving...
-                      </>
-                    ) : (
-                      "Save Changes"
-                    )}
+              {isLoading ? (
+                <div className="rounded-2xl border border-slate-200 bg-white/80 p-16 text-center shadow-lg dark:border-slate-800 dark:bg-slate-900/80">
+                  <Loader2 className="mx-auto h-8 w-8 animate-spin text-indigo-600 dark:text-indigo-400" />
+                  <p className="mt-4 text-sm font-medium text-slate-900 dark:text-slate-50">Loading your profile...</p>
+                </div>
+              ) : !userProfile ? (
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-16 text-center dark:border-slate-700 dark:bg-slate-900/30">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-950/50 dark:to-purple-950/50">
+                    <User className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <p className="mt-4 text-lg font-semibold text-slate-900 dark:text-slate-50">No profile found</p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Please set up your profile from the dashboard</p>
+                  <Button
+                    variant="outline"
+                    className="mt-6 gap-2 rounded-xl"
+                    onClick={() => router.push("/dashboard")}
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                    Go to Dashboard
                   </Button>
                 </div>
-              </form>
-            )}
-          </div>
-        </main>
+              ) : (
+                <form onSubmit={handleSubmit} className="space-y-6">
+                  {/* Profile Picture & Wallet Section */}
+                  <div className="grid gap-6 lg:grid-cols-3">
+                    <Card className="overflow-hidden rounded-2xl border border-slate-200 bg-white/80 shadow-lg dark:border-slate-800 dark:bg-slate-900/80 lg:col-span-1">
+                      <div className="border-b border-slate-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-6 dark:border-slate-800 dark:from-indigo-950/30 dark:to-purple-950/30">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 shadow-lg">
+                            <User className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+                              Profile Picture
+                            </CardTitle>
+                            <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
+                              Your avatar
+                            </CardDescription>
+                          </div>
+                        </div>
+                      </div>
+                      <CardContent className="flex flex-col items-center gap-6 p-6">
+                        <div className="relative">
+                          <Avatar className="h-32 w-32 border-4 border-white shadow-2xl dark:border-slate-900">
+                            {userProfile?.profilePicture ? (
+                              <AvatarImage src={userProfile.profilePicture || "/placeholder.svg"} alt={userProfile.username} />
+                            ) : previewUrl ? (
+                              <AvatarImage src={previewUrl || "/placeholder.svg"} alt="Profile preview" />
+                            ) : (
+                              <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white text-3xl font-semibold">
+                                {userProfile.username?.substring(0, 2).toUpperCase() || <User className="h-12 w-12" />}
+                              </AvatarFallback>
+                            )}
+                          </Avatar>
+                          <Button
+                            type="button"
+                            size="icon"
+                            className="absolute bottom-0 right-0 h-10 w-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 shadow-lg transition-all hover:scale-110"
+                            onClick={triggerFileInput}
+                            disabled={isUploading}
+                          >
+                            {isUploading ? (
+                              <Loader2 className="h-5 w-5 animate-spin text-white" />
+                            ) : (
+                              <Upload className="h-5 w-5 text-white" />
+                            )}
+                          </Button>
+                          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
+                        </div>
+                        <p className="text-center text-xs text-slate-600 dark:text-slate-400">
+                          Click the upload button to change your picture
+                        </p>
+
+                        <div className="w-full space-y-2">
+                          <Label htmlFor="wallet-address" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Wallet Address
+                          </Label>
+                          <div className="relative">
+                            <Wallet className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                            <Input
+                              id="wallet-address"
+                              value={account ?? ""}
+                              disabled
+                              className="rounded-xl border-slate-300 bg-slate-50 pl-10 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-300"
+                            />
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+
+                    {/* Basic Details */}
+                    <Card className="overflow-hidden rounded-2xl border border-slate-200 bg-white/80 shadow-lg dark:border-slate-800 dark:bg-slate-900/80 lg:col-span-2">
+                      <div className="border-b border-slate-200 bg-gradient-to-r from-blue-50 to-cyan-50 p-6 dark:border-slate-800 dark:from-blue-950/30 dark:to-cyan-950/30">
+                        <div className="flex items-center gap-3">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
+                            <Edit2 className="h-5 w-5 text-white" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+                              Basic Information
+                            </CardTitle>
+                            <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
+                              Personal details visible to your team
+                            </CardDescription>
+                          </div>
+                        </div>
+                      </div>
+                      <CardContent className="grid gap-5 p-6 md:grid-cols-2">
+                        <div className="space-y-2 md:col-span-2">
+                          <Label htmlFor="display-name" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Display Name *
+                          </Label>
+                          <Input
+                            id="display-name"
+                            value={displayName}
+                            onChange={(e) => {
+                              setDisplayName(e.target.value)
+                              if (e.target.value.trim()) {
+                                setErrors((prev) => ({ ...prev, displayName: undefined }))
+                              }
+                            }}
+                            placeholder="e.g. Charles Babbage"
+                            className={`h-11 rounded-xl border-slate-300 dark:border-slate-700 ${
+                              errors.displayName ? "border-red-500 focus:border-red-500" : ""
+                            }`}
+                          />
+                          {errors.displayName && (
+                            <p className="text-xs text-red-600 dark:text-red-400">{errors.displayName}</p>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="discord-username" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Discord Username
+                          </Label>
+                          <div className="relative">
+                            <Hash className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                            <Input
+                              id="discord-username"
+                              value={discordUsername}
+                              onChange={(e) => setDiscordUsername(e.target.value)}
+                              placeholder="username#0000"
+                              className="h-11 rounded-xl border-slate-300 pl-10 dark:border-slate-700"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="email-address" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                            Email Address
+                          </Label>
+                          <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                            <Input
+                              id="email-address"
+                              type="email"
+                              value={email}
+                              onChange={(e) => {
+                                setEmail(e.target.value)
+                                if (errors.email) {
+                                  setErrors((prev) => ({ ...prev, email: undefined }))
+                                }
+                              }}
+                              placeholder="name@example.com"
+                              className={`h-11 rounded-xl border-slate-300 pl-10 dark:border-slate-700 ${
+                                errors.email ? "border-red-500 focus:border-red-500" : ""
+                              }`}
+                            />
+                          </div>
+                          {errors.email && (
+                            <p className="text-xs text-red-600 dark:text-red-400">{errors.email}</p>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  {/* Specialties Section - Compact Tags */}
+                  <Card className="overflow-hidden rounded-2xl border border-slate-200 bg-white/80 shadow-lg dark:border-slate-800 dark:bg-slate-900/80">
+                    <div className="border-b border-slate-200 bg-gradient-to-r from-amber-50 to-orange-50 p-6 dark:border-slate-800 dark:from-amber-950/30 dark:to-orange-950/30">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-amber-500 to-orange-500 shadow-lg">
+                          <Award className="h-5 w-5 text-white" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+                            Specialties
+                          </CardTitle>
+                          <CardDescription className="text-xs text-slate-600 dark:text-slate-400">
+                            Select your areas of expertise
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </div>
+                    <CardContent className="p-6">
+                      <div className="flex flex-wrap gap-2.5">
+                        {SPECIALTY_OPTIONS.map((opt) => {
+                          const isSelected = selectedSpecialties.includes(opt)
+                          return (
+                            <button
+                              key={opt}
+                              type="button"
+                              onClick={() => toggleSpecialty(opt)}
+                              className={`group flex items-center gap-2 rounded-full border-2 px-4 py-2 text-sm font-medium transition-all hover:scale-105 ${
+                                isSelected
+                                  ? "border-indigo-500 bg-gradient-to-r from-indigo-500 to-purple-500 text-white shadow-lg shadow-indigo-500/50"
+                                  : "border-slate-300 bg-white text-slate-700 hover:border-indigo-400 hover:bg-indigo-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                              }`}
+                            >
+                              {isSelected && <Check className="h-4 w-4" />}
+                              <span>{opt}</span>
+                            </button>
+                          )
+                        })}
+                      </div>
+                      {selectedSpecialties.length > 0 && (
+                        <div className="mt-4 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-400">
+                          <Check className="h-3.5 w-3.5 text-green-600 dark:text-green-400" />
+                          <span>{selectedSpecialties.length} specialty{selectedSpecialties.length !== 1 ? "ies" : ""} selected</span>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+
+                  {/* Save Button */}
+                  <div className="flex justify-end">
+                    <Button
+                      type="submit"
+                      disabled={isLoading}
+                      className="h-12 gap-2 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 px-8 font-semibold text-white shadow-[0_10px_40px_rgba(99,102,241,0.4)] transition-all hover:scale-[1.02] hover:shadow-[0_15px_50px_rgba(99,102,241,0.5)]"
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                          Saving Changes...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-5 w-5" />
+                          Save Changes
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </div>
+          </main>
+        </div>
       </div>
-    </div>
+    </ProtectedRoute>
   )
 }

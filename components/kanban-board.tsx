@@ -48,6 +48,7 @@ import {
   ChevronUp,
   Tag,
   ChevronDown,
+  AlertTriangle,
 } from "lucide-react";
 import {
   Dialog,
@@ -103,6 +104,7 @@ type Column = {
 export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   const {
     addTask,
+    addTaskWithId,
     getTasks,
     getAllTasks,
     updateTask,
@@ -115,6 +117,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     getJoinRequestsForProject,
     respondToProjectJoinRequest,
     inviteUserToProject,
+    db,
   } = useFirebase();
   const { account, signer } = useWeb3();
   const { toast } = useToast();
@@ -260,6 +263,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   const [escrowTask, setEscrowTask] = useState<Task | null>(null);
   const [escrowMode, setEscrowMode] = useState<"lock" | "release">("lock");
   const [isLockingEscrow, setIsLockingEscrow] = useState(false);
+  const [pendingTaskData, setPendingTaskData] = useState<any | null>(null);
   const [isProposalDialogOpen, setIsProposalDialogOpen] = useState(false);
   const [proposalTargetTask, setProposalTargetTask] = useState<Task | null>(null);
   const [proposalContent, setProposalContent] = useState("");
@@ -1335,66 +1339,139 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
       }
 
       // For open bounty with escrow, escrow will be locked when proposal is approved
-      // For direct assignment with escrow, we need to lock before creating task
-      // But we need task ID first, so we'll create task then lock escrow
-      // Actually, let's create task first, then show escrow popup if needed
+      // For direct assignment with escrow, we need to lock escrow BEFORE creating task
+      // Generate task ID first, lock escrow, then create task only if escrow succeeds
     }
 
+    const timestamp = new Date().toISOString();
+    
+    // Build task object without undefined fields
+    const taskToCreate: any = {
+      title: newTask.title,
+      description: newTask.description || "",
+      status: newTask.status,
+      priority: newTask.priority,
+      userId: account,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+      isOpenBounty: Boolean(newTask.isOpenBounty),
+      escrowEnabled: Boolean(newTask.escrowEnabled),
+      // Persist estimated cost for reporting/analytics
+      estimatedCostUSD: useAIEstimator && aiEstimate ? aiEstimate.totalUSD : costEstimate?.totalUSD,
+      estimatedHours: useAIEstimator && aiEstimate ? aiEstimate.estimatedHours : costEstimate?.estimatedHours,
+    };
+
+    // Only add optional fields if they have values
+    if (newTask.reward && newTask.reward !== "no_reward") {
+      taskToCreate.reward = newTask.reward;
+    }
+    if (newTask.rewardAmount) {
+      taskToCreate.rewardAmount = newTask.rewardAmount;
+    }
+    if (newTask.isOpenBounty) {
+      taskToCreate.assigneeId = null;
+    } else if (newTask.assigneeId) {
+      taskToCreate.assigneeId = newTask.assigneeId;
+    }
+    if (newTask.reviewerId) {
+      taskToCreate.reviewerId = newTask.reviewerId;
+    }
+    if (newTask.tags && newTask.tags.length > 0) {
+      taskToCreate.tags = newTask.tags;
+    }
+    if (projectId) {
+      taskToCreate.projectId = projectId;
+    }
+    if (newTask.escrowEnabled) {
+      // For open bounty, escrow will be locked when proposal is approved
+      // For direct assignment, escrow will be locked before task creation
+      if (newTask.isOpenBounty) {
+        taskToCreate.escrowStatus = "pending"; // Will be locked when proposal approved
+      } else {
+        taskToCreate.escrowStatus = "pending"; // Will be locked via popup
+      }
+    }
+    if (newTask.isOpenBounty) {
+      taskToCreate.proposals = [];
+    }
+
+    // If escrow is enabled with direct assignment, generate ID and show escrow popup first
+    if (newTask.escrowEnabled && !newTask.isOpenBounty && newTask.assigneeId) {
+      try {
+        // Generate a task ID using Firestore's doc function
+        if (!db) {
+          throw new Error("Firestore is not initialized");
+        }
+        
+        const { doc: docFn, collection } = await import("firebase/firestore");
+        const taskRef = docFn(collection(db, "tasks"));
+        const generatedTaskId = taskRef.id;
+
+        // Find assignee details for display
+        let assignee;
+        const assigneeProfile = availableUsers.find(
+          (user) => user.id === newTask.assigneeId
+        );
+        if (assigneeProfile) {
+          assignee = {
+            id: assigneeProfile.id,
+            username: assigneeProfile.username,
+            profilePicture: assigneeProfile.profilePicture,
+          };
+        }
+
+        // Find reviewer details if exists
+        let reviewer;
+        if (newTask.reviewerId) {
+          const reviewerProfile = availableUsers.find(
+            (user) => user.id === newTask.reviewerId
+          );
+          if (reviewerProfile) {
+            reviewer = {
+              id: reviewerProfile.id,
+              username: reviewerProfile.username,
+              profilePicture: reviewerProfile.profilePicture,
+            };
+          }
+        }
+
+        // Create a temporary Task object for escrow popup
+        const tempTask: Task = {
+          ...taskToCreate,
+          id: generatedTaskId,
+          assignee,
+          reviewer,
+        };
+
+        // Store the task data to be created after escrow success
+        setPendingTaskData({
+          taskId: generatedTaskId,
+          taskData: taskToCreate,
+          assignee,
+          reviewer,
+        });
+
+        // Show escrow popup - task will be created in the onSuccess callback
+        setEscrowTask(tempTask);
+        setEscrowMode("lock");
+        setIsEscrowPopupOpen(true);
+        
+        return; // Don't create task yet - will be created after escrow success
+      } catch (error) {
+        console.error("Error preparing escrow task:", error);
+        toast({
+          title: "Error",
+          description: "Failed to prepare escrow task",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    // For non-escrow tasks or open bounty escrow tasks, create immediately
     setIsCreatingTask(true);
 
     try {
-      const timestamp = new Date().toISOString();
-      
-      // Build task object without undefined fields
-      const taskToCreate: any = {
-        title: newTask.title,
-        description: newTask.description || "",
-        status: newTask.status,
-        priority: newTask.priority,
-        userId: account,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-        isOpenBounty: Boolean(newTask.isOpenBounty),
-        escrowEnabled: Boolean(newTask.escrowEnabled),
-        // Persist estimated cost for reporting/analytics
-        estimatedCostUSD: useAIEstimator && aiEstimate ? aiEstimate.totalUSD : costEstimate?.totalUSD,
-        estimatedHours: useAIEstimator && aiEstimate ? aiEstimate.estimatedHours : costEstimate?.estimatedHours,
-      };
-
-      // Only add optional fields if they have values
-      if (newTask.reward && newTask.reward !== "no_reward") {
-        taskToCreate.reward = newTask.reward;
-      }
-      if (newTask.rewardAmount) {
-        taskToCreate.rewardAmount = newTask.rewardAmount;
-      }
-      if (newTask.isOpenBounty) {
-        taskToCreate.assigneeId = null;
-      } else if (newTask.assigneeId) {
-        taskToCreate.assigneeId = newTask.assigneeId;
-      }
-      if (newTask.reviewerId) {
-        taskToCreate.reviewerId = newTask.reviewerId;
-      }
-      if (newTask.tags && newTask.tags.length > 0) {
-        taskToCreate.tags = newTask.tags;
-      }
-      if (projectId) {
-        taskToCreate.projectId = projectId;
-      }
-      if (newTask.escrowEnabled) {
-        // For open bounty, escrow will be locked when proposal is approved
-        // For direct assignment, escrow will be locked after task creation
-        if (newTask.isOpenBounty) {
-          taskToCreate.escrowStatus = "pending"; // Will be locked when proposal approved
-        } else {
-          taskToCreate.escrowStatus = "pending"; // Will be locked via popup
-        }
-      }
-      if (newTask.isOpenBounty) {
-        taskToCreate.proposals = [];
-      }
-
       console.log("Creating task with data:", taskToCreate);
       const taskId = await addTask(taskToCreate);
       
@@ -1728,8 +1805,18 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   const handleDeleteTask = async () => {
     if (!selectedTask) return;
 
-    // Prevent deleting paid tasks
-    if (selectedTask.paid) {
+    // Prevent deleting tasks with escrow enabled unless they are paid out
+    if (selectedTask.escrowEnabled && !selectedTask.paid) {
+      toast({
+        title: "Cannot delete escrow task",
+        description: "Escrow-enabled tasks can only be deleted after payout. Please use the dispute option if there's an issue.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Prevent deleting paid tasks (redundant check but kept for clarity)
+    if (selectedTask.paid && !selectedTask.escrowEnabled) {
       toast({
         title: "Cannot delete paid task",
         description: "Tasks that have been paid cannot be deleted",
@@ -1771,6 +1858,24 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     } finally {
       setIsDeletingTask(false);
     }
+  };
+
+  const handleOpenDispute = () => {
+    if (!selectedTask) return;
+
+    toast({
+      title: "Dispute System",
+      description: "Opening a dispute for this escrow task. Our team will review the case within 24-48 hours.",
+    });
+
+    // TODO: Implement dispute creation logic
+    // This could involve:
+    // - Creating a dispute record in Firestore
+    // - Notifying admins/moderators
+    // - Locking the escrow until dispute is resolved
+    // - Allowing both parties to submit evidence
+
+    console.log("Opening dispute for task:", selectedTask.id);
   };
 
   const handleSubmitWork = async () => {
@@ -2894,9 +2999,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   };
 
   const boardWrapperClasses = cn(
-    "w-full max-w-7xl mx-auto rounded-2xl shadow-inner bg-gradient-to-br from-blue-50 to-purple-50 dark:bg-gray-900 dark:from-gray-900 dark:to-gray-800 flex flex-col gap-4 p-3 sm:p-4 lg:p-6",
+    "w-full max-w-7xl mx-auto flex flex-col gap-4",
     isProjectView
-      ? "min-h-[calc(100vh-7rem)] lg:min-h-[calc(100vh-6rem)] overflow-y-auto"
+      ? ""
       : ""
   );
 
@@ -2904,61 +3009,82 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     <div className={boardWrapperClasses}>
       {/* Project Header - Show when viewing a project board */}
       {projectId && currentProject && isProjectMember && (
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                {currentProject.title}
-              </h2>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {currentProject.description}
-              </p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="secondary" className="flex items-center gap-1">
-                <User className="h-3 w-3" />
-                {(currentProject.members?.length || 0)} member{((currentProject.members?.length || 0)) !== 1 ? 's' : ''}
-              </Badge>
-              {userProjectRole && (
-                <Badge 
-                  variant={userProjectRole === "admin" ? "default" : userProjectRole === "manager" ? "secondary" : "outline"}
-                  className="capitalize"
-                >
-                  {userProjectRole}
+        <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white/80 shadow-lg backdrop-blur-sm dark:border-slate-800 dark:bg-slate-900/80">
+          <div className="border-b border-slate-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-6 dark:border-slate-800 dark:from-indigo-950/30 dark:to-purple-950/30">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="flex items-center gap-4">
+                <Avatar className="h-16 w-16 border-2 border-white shadow-lg dark:border-slate-900">
+                  <AvatarImage src={currentProject.logoUrl || "/placeholder.svg"} alt={currentProject.title} />
+                  <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white text-xl font-semibold">
+                    {currentProject.title?.substring(0, 2).toUpperCase() || "PJ"}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-50">
+                    {currentProject.title}
+                  </h2>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                    {currentProject.description || "No description provided"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 flex items-center gap-1.5 px-3 py-1">
+                  <User className="h-3.5 w-3.5" />
+                  {(currentProject.members?.length || 0)} member{((currentProject.members?.length || 0)) !== 1 ? 's' : ''}
                 </Badge>
-              )}
-              {isRealtimeSyncing && (
-                <Badge variant="outline" className="flex items-center gap-1 animate-pulse">
-                  <div className="h-2 w-2 rounded-full bg-green-500" />
-                  <span className="text-xs">Syncing...</span>
-                </Badge>
-              )}
-              {userProjectRole === "admin" && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full md:w-auto"
-                  onClick={() => setIsManageContribOpen(true)}
-                >
-                  Manage Contributors
-                </Button>
-              )}
+                {userProjectRole && (
+                  <Badge 
+                    className={cn(
+                      "rounded-full capitalize px-3 py-1",
+                      userProjectRole === "admin" 
+                        ? "bg-gradient-to-r from-purple-500 to-indigo-500 text-white" 
+                        : userProjectRole === "manager" 
+                        ? "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
+                        : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                    )}
+                  >
+                    {userProjectRole}
+                  </Badge>
+                )}
+                {isRealtimeSyncing && (
+                  <Badge className="rounded-full flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300 animate-pulse">
+                    <div className="h-2 w-2 rounded-full bg-green-500 dark:bg-green-400" />
+                    <span className="text-xs">Syncing...</span>
+                  </Badge>
+                )}
+                {userProjectRole === "admin" && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="rounded-xl border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+                    onClick={() => setIsManageContribOpen(true)}
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    Manage Team
+                  </Button>
+                )}
+              </div>
             </div>
           </div>
-          {isContributor && (
-            <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-md border border-blue-200 dark:border-blue-800">
-              <AlertCircle className="h-4 w-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-              <p className="text-xs text-blue-600 dark:text-blue-400">
-                You're viewing this project as a contributor. You can view tasks but cannot create, move, or process payments.
-              </p>
-            </div>
-          )}
-          {userProjectRole === "manager" && (
-            <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 rounded-md border border-amber-200 dark:border-amber-800">
-              <AlertCircle className="h-4 w-4 text-amber-600 dark:text-amber-400 flex-shrink-0" />
-              <p className="text-xs text-amber-600 dark:text-amber-400">
-                As a manager, you can create and manage tasks but only admins can process batch payments.
-              </p>
+          {(isContributor || userProjectRole === "manager") && (
+            <div className="p-4 space-y-3">
+              {isContributor && (
+                <div className="flex items-center gap-3 rounded-xl border border-blue-200 bg-blue-50/50 px-4 py-3 dark:border-blue-800 dark:bg-blue-950/30">
+                  <AlertCircle className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0" />
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    You're viewing this project as a contributor. You can view tasks but cannot create, move, or process payments.
+                  </p>
+                </div>
+              )}
+              {userProjectRole === "manager" && (
+                <div className="flex items-center gap-3 rounded-xl border border-amber-200 bg-amber-50/50 px-4 py-3 dark:border-amber-800 dark:bg-amber-950/30">
+                  <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0" />
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    As a manager, you can create and manage tasks but only admins can process batch payments.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -3568,16 +3694,19 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
               return (
                 <div
                   key={column.id}
-                  className={`kanban-column kanban-column-todo bg-white/80 dark:bg-[#1e1e1e] rounded-lg p-4 shadow-md flex flex-col ${
+                  className={`kanban-column kanban-column-todo overflow-hidden rounded-2xl border border-slate-200 bg-white/80 backdrop-blur-sm shadow-lg dark:border-slate-800 dark:bg-slate-900/80 flex flex-col ${
                     isProjectView ? "h-full min-h-0" : ""
                   }`}
                 >
-                  <div className="mb-4 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-2">
+                  <div className="border-b border-slate-200 bg-slate-50/50 dark:border-slate-800 dark:bg-slate-800/30 -mx-4 -mt-4 px-4 pt-4 pb-3 mb-4 rounded-t-2xl flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5">
                       {column.icon}
-                      <h2 className="font-semibold">
-                        {column.title} ({column.count})
+                      <h2 className="font-semibold text-slate-900 dark:text-slate-50">
+                        {column.title}
                       </h2>
+                      <Badge className="rounded-full bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300 text-xs font-medium px-2 py-0.5">
+                        {column.count}
+                      </Badge>
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -3661,10 +3790,10 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                           if (totalTasks === 0) {
                             return (
                               <div className="flex flex-col items-center justify-center py-12 text-center">
-                                <div className="rounded-full bg-gray-100 dark:bg-gray-800 p-3 mb-3">
-                                  <CheckCircle className="h-6 w-6 text-gray-400" />
+                                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 mb-3">
+                                  <CheckCircle className="h-6 w-6 text-slate-400 dark:text-slate-500" />
                                 </div>
-                                <p className="text-sm text-muted-foreground">
+                                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                                   No completed tasks
                                 </p>
                               </div>
@@ -3793,18 +3922,18 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                       ) : // Regular rendering for non-Done columns
                       getFilteredTasks(column.tasks).length === 0 ? (
                         <div className="flex flex-col items-center justify-center py-12 text-center">
-                          <div className="rounded-full bg-gray-100 dark:bg-gray-800 p-3 mb-3">
+                          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-slate-100 to-slate-200 dark:from-slate-800 dark:to-slate-900 mb-3">
                             {column.id === "todo" && (
-                              <Circle className="h-6 w-6 text-gray-400" />
+                              <Circle className="h-6 w-6 text-slate-400 dark:text-slate-500" />
                             )}
                             {column.id === "inprogress" && (
-                              <Clock className="h-6 w-6 text-gray-400" />
+                              <Clock className="h-6 w-6 text-slate-400 dark:text-slate-500" />
                             )}
                             {column.id === "review" && (
-                              <CircleEllipsis className="h-6 w-6 text-gray-400" />
+                              <CircleEllipsis className="h-6 w-6 text-slate-400 dark:text-slate-500" />
                             )}
                           </div>
-                          <p className="text-sm text-muted-foreground">
+                          <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
                             {column.id === "todo" && "No tasks to do"}
                             {column.id === "inprogress" &&
                               "No tasks in progress"}
@@ -3886,13 +4015,28 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                           <Edit className="mr-2 h-4 w-4" />
                           Edit Task
                         </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={handleDeleteTask}
-                          className="text-red-600 dark:text-red-400 rounded-lg cursor-pointer focus:bg-red-50 dark:focus:bg-red-950/30"
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Task
-                        </DropdownMenuItem>
+                        
+                        {/* Show Delete only if task is paid OR escrow is not enabled */}
+                        {(selectedTask.paid || !selectedTask.escrowEnabled) && (
+                          <DropdownMenuItem
+                            onClick={handleDeleteTask}
+                            className="text-red-600 dark:text-red-400 rounded-lg cursor-pointer focus:bg-red-50 dark:focus:bg-red-950/30"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete Task
+                          </DropdownMenuItem>
+                        )}
+
+                        {/* Show Open Dispute if escrow is enabled and not paid */}
+                        {selectedTask.escrowEnabled && !selectedTask.paid && (
+                          <DropdownMenuItem
+                            onClick={handleOpenDispute}
+                            className="text-amber-600 dark:text-amber-400 rounded-lg cursor-pointer focus:bg-amber-50 dark:focus:bg-amber-950/30"
+                          >
+                            <AlertTriangle className="mr-2 h-4 w-4" />
+                            Open Dispute
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   )}
@@ -4038,6 +4182,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                               }
                             }}
                             emptyLabel="Unassigned"
+                            disabled={selectedTask.escrowEnabled}
                           />
                         </div>
                       )}
@@ -4057,7 +4202,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                 </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <div className="grid gap-2">
-                        <Label htmlFor="edit-reward" className="text-sm font-medium text-slate-700 dark:text-slate-300">Reward Token</Label>
+                        <Label htmlFor="edit-reward" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          {selectedTask.escrowEnabled ? "Reward Token (Locked)" : "Reward Token"}
+                        </Label>
                         <Select
                           value={editedTask.reward || "no_reward"}
                           onValueChange={(value) =>
@@ -4066,6 +4213,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                               reward: value === "no_reward" ? undefined : value,
                             })
                           }
+                          disabled={selectedTask.escrowEnabled}
                         >
                           <SelectTrigger className="h-11 rounded-xl border-slate-300 dark:border-slate-700">
                             <SelectValue placeholder="Select token" />
@@ -4078,7 +4226,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                         </Select>
                       </div>
                       <div className="grid gap-2">
-                        <Label htmlFor="edit-rewardAmount" className="text-sm font-medium text-slate-700 dark:text-slate-300">Amount</Label>
+                        <Label htmlFor="edit-rewardAmount" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          {selectedTask.escrowEnabled ? "Amount (Locked)" : "Amount"}
+                        </Label>
                         <Input
                           id="edit-rewardAmount"
                           type="number"
@@ -4093,7 +4243,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                             })
                           }
                           placeholder="0.00"
-                          disabled={!editedTask.reward}
+                          disabled={!editedTask.reward || selectedTask.escrowEnabled}
                           className="h-11 rounded-xl border-slate-300 dark:border-slate-700"
                         />
                       </div>
@@ -5007,6 +5157,14 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
         onClose={() => {
           setIsEscrowPopupOpen(false);
           setEscrowTask(null);
+          // If there's pending task data, clear it (user cancelled escrow)
+          if (pendingTaskData) {
+            setPendingTaskData(null);
+            toast({
+              title: "Task creation cancelled",
+              description: "Escrow payment was cancelled, task was not created",
+            });
+          }
         }}
         task={escrowTask}
         mode={escrowMode}
@@ -5014,10 +5172,99 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
           if (!escrowTask) return;
 
           if (escrowMode === "lock") {
-            // Update task with escrow locked status
-            await updateTask(escrowTask.id, {
-              escrowStatus: "locked",
-            });
+            // Check if this is a pending task creation (escrow-first flow)
+            if (pendingTaskData) {
+              try {
+                // Create the task in the database with the pre-generated ID
+                await addTaskWithId(pendingTaskData.taskId, pendingTaskData.taskData);
+                
+                // Update task with escrow locked status
+                await updateTask(pendingTaskData.taskId, {
+                  escrowStatus: "locked",
+                });
+
+                // Create the full task object for local state
+                const newTaskWithId: Task = {
+                  ...pendingTaskData.taskData,
+                  id: pendingTaskData.taskId,
+                  assignee: pendingTaskData.assignee,
+                  reviewer: pendingTaskData.reviewer,
+                  escrowStatus: "locked",
+                };
+
+                // Update local state
+                setCreatedTasks((prev) => [...prev, newTaskWithId]);
+                setAllTasks((prev) => [...prev, newTaskWithId]);
+
+                // If the task is assigned to the current user, add it to assignedTasks too
+                if (account) {
+                  try {
+                    const currentProfile = await getUserProfile(account);
+                    const currentUserId = currentProfile?.id;
+                    if (
+                      newTaskWithId.assigneeId &&
+                      currentUserId &&
+                      newTaskWithId.assigneeId === currentUserId
+                    ) {
+                      setAssignedTasks((prev) => [...prev, newTaskWithId]);
+                    }
+                  } catch (e) {
+                    // fallback: if profile lookup fails and assigneeId equals wallet address
+                    if (newTaskWithId.assigneeId === account) {
+                      setAssignedTasks((prev) => [...prev, newTaskWithId]);
+                    }
+                  }
+                }
+
+                // Auto-invite assignee to project if not already a member
+                if (currentProject && newTaskWithId.assigneeId && !newTaskWithId.isOpenBounty && account) {
+                  const isMember = !!currentProject.members?.some(
+                    (m) => m.userId === newTaskWithId.assigneeId
+                  );
+                  if (!isMember) {
+                    try {
+                      await inviteUserToProject(
+                        currentProject.id,
+                        newTaskWithId.assigneeId,
+                        account,
+                        currentProject.title
+                      );
+                      toast({ title: "Invitation sent" });
+                    } catch (e) {
+                      console.error("Failed to auto-invite assignee:", e);
+                    }
+                  }
+                }
+
+                // Update columns
+                updateColumnsBasedOnView();
+
+                // Clear pending task data
+                setPendingTaskData(null);
+
+                toast({
+                  title: "Task created",
+                  description: "Your task has been created and escrow locked successfully",
+                });
+              } catch (error) {
+                console.error("Error creating task after escrow lock:", error);
+                toast({
+                  title: "Error",
+                  description: "Escrow locked but failed to create task. Please contact support.",
+                  variant: "destructive",
+                });
+              }
+            } else {
+              // Existing task - just update escrow status
+              await updateTask(escrowTask.id, {
+                escrowStatus: "locked",
+              });
+
+              toast({
+                title: "Escrow locked",
+                description: "Escrow has been locked successfully",
+              });
+            }
 
             // Close dialog and reset form
             setNewTask({
@@ -5032,11 +5279,6 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
 
             setIsDialogOpen(false);
             setShowRewardSection(false);
-
-            toast({
-              title: "Task created",
-              description: "Your task has been created and escrow locked successfully",
-            });
           } else {
             // Release mode - update task status and mark as paid
             await updateTask(escrowTask.id, {

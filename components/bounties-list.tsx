@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Search, Loader2 } from "lucide-react"
+import { Search, Loader2, DollarSign, Clock, Sparkles, Send, FileText, Award, Filter } from "lucide-react"
 import type { Bounty } from "@/lib/types"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
@@ -16,7 +16,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useWeb3 } from "./web3-provider"
 
 export function BountiesList() {
-  const { getBounties, isInitialized, updateTask, addTaskSubmission, getUserProfile } = useFirebase()
+  const { getBounties, isInitialized, updateTask, addTaskSubmission, getUserProfile, getProjects, getProjectById } = useFirebase()
   const { account } = useWeb3()
   const { toast } = useToast()
   const [bounties, setBounties] = useState<Bounty[]>([])
@@ -30,6 +30,7 @@ export function BountiesList() {
   const [isSubmittingProposal, setIsSubmittingProposal] = useState(false)
   const [isSubmittingWork, setIsSubmittingWork] = useState(false)
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [projectsMap, setProjectsMap] = useState<Map<string, any>>(new Map())
 
   const generateId = () =>
     typeof globalThis.crypto !== "undefined" && typeof globalThis.crypto.randomUUID === "function"
@@ -63,8 +64,22 @@ export function BountiesList() {
         return
       }
 
-      const data = await getBounties()
-      setBounties(data || [])
+      // Fetch bounties and projects in parallel
+      const [bountiesData, projectsData] = await Promise.all([
+        getBounties(),
+        getProjects()
+      ])
+
+      // Create a map of projectId -> project for quick lookup
+      const projectMap = new Map()
+      if (projectsData) {
+        projectsData.forEach((project: any) => {
+          projectMap.set(project.id, project)
+        })
+      }
+      setProjectsMap(projectMap)
+
+      setBounties(bountiesData || [])
     } catch (error) {
       console.error("Error fetching bounties:", error)
       setBounties([])
@@ -196,160 +211,311 @@ export function BountiesList() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold">Open Bounties</h1>
-        <p className="text-muted-foreground">Find and explore tasks and bounties across hundreds of DAOs</p>
-      </div>
-
       {!isInitialized ? (
         <div className="flex h-40 items-center justify-center">
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Initializing Firebase...</p>
+          <div className="flex flex-col items-center gap-3">
+            <Loader2 className="h-10 w-10 animate-spin text-indigo-600 dark:text-indigo-400" />
+            <p className="text-sm text-slate-600 dark:text-slate-400">Loading bounties...</p>
           </div>
         </div>
       ) : (
-        <div className="space-y-4 pt-4">
-          <div className="flex flex-col gap-4 sm:flex-row">
+        <>
+          {/* Filters Section */}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
               <Input
-                placeholder="Search by name..."
-                className="pl-8"
+                placeholder="Search bounties by title, description, or DAO..."
+                className="h-11 rounded-xl border-slate-300 bg-white pl-10 shadow-sm transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900/50 dark:focus:border-indigo-600 dark:focus:ring-indigo-900/30"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
             <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by category" />
+              <SelectTrigger className="h-11 w-full rounded-xl border-slate-300 bg-white shadow-sm transition-all dark:border-slate-700 dark:bg-slate-900/50 sm:w-[200px]">
+                <Filter className="mr-2 h-4 w-4" />
+                <SelectValue placeholder="Category" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="rounded-xl">
                 <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="Writing">Writing</SelectItem>
-                <SelectItem value="Development">Development</SelectItem>
-                <SelectItem value="Design">Design</SelectItem>
-                <SelectItem value="Translation">Translation</SelectItem>
-                <SelectItem value="Community">Community</SelectItem>
-                <SelectItem value="Video">Video</SelectItem>
+                <SelectItem value="Writing">✍️ Writing</SelectItem>
+                <SelectItem value="Development">💻 Development</SelectItem>
+                <SelectItem value="Design">🎨 Design</SelectItem>
+                <SelectItem value="Translation">🌐 Translation</SelectItem>
+                <SelectItem value="Community">👥 Community</SelectItem>
+                <SelectItem value="Video">🎥 Video</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
-          <div className="space-y-4">
-            <h2 className="text-lg font-semibold">ALL BOUNTIES</h2>
-
-            {isLoading ? (
-              <div className="flex h-40 items-center justify-center">
-                <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+          {/* Stats Bar */}
+          <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-gradient-to-r from-indigo-50 to-purple-50 p-4 dark:border-slate-800 dark:from-indigo-950/30 dark:to-purple-950/30">
+            <div className="flex items-center gap-2">
+              <Award className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              <div>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                  {filteredBounties.length}
+                </p>
+                <p className="text-xs text-slate-600 dark:text-slate-400">Active Bounties</p>
               </div>
-            ) : filteredBounties.length === 0 ? (
-              <div className="rounded-lg border border-dashed p-8 text-center">
-                <p className="text-muted-foreground">No bounties found matching your criteria</p>
+            </div>
+            <div className="h-8 w-px bg-slate-300 dark:bg-slate-700" />
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5 text-green-600 dark:text-green-400" />
+              <div>
+                <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                  ${filteredBounties.reduce((sum, b) => sum + ((b as any).rewardAmount || 0), 0).toFixed(0)}
+                </p>
+                <p className="text-xs text-slate-600 dark:text-slate-400">Total Value</p>
               </div>
-            ) : (
-              filteredBounties.map((bounty) => (
-                <Card key={bounty.id} className="overflow-hidden cursor-pointer" onClick={() => openBountyDialog(bounty)}>
-                  <CardContent className="flex items-center gap-4 p-4">
-                    <Avatar className="h-12 w-12 rounded-full">
-                      <AvatarImage src={(bounty as any).daoImage || "/placeholder.svg"} alt={(bounty as any).daoName} />
-                      <AvatarFallback>{(bounty as any).daoName.substring(0, 2)}</AvatarFallback>
-                    </Avatar>
+            </div>
+          </div>
 
-                    <div className="flex-1">
-                      <h3 className="font-medium">{bounty.title}</h3>
-                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <span>
-                          {(bounty as any).daysAgo} days ago by {(bounty as any).daoName}
-                        </span>
-                      </div>
-                      <div className="mt-1">
-                        <Badge variant="outline" className="rounded-sm bg-secondary/50 text-xs font-normal">
-                          {(bounty as any).category
-}
-                        </Badge>
+          {/* Bounties Grid */}
+          {isLoading ? (
+            <div className="flex h-60 items-center justify-center">
+              <div className="flex flex-col items-center gap-3">
+                <div className="h-12 w-12 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent"></div>
+                <p className="text-sm text-slate-600 dark:text-slate-400">Loading bounties...</p>
+              </div>
+            </div>
+          ) : filteredBounties.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-12 text-center dark:border-slate-700 dark:bg-slate-900/30">
+              <Award className="mx-auto h-12 w-12 text-slate-400" />
+              <p className="mt-3 text-lg font-medium text-slate-900 dark:text-slate-50">No bounties found</p>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                Try adjusting your search or filters
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredBounties.map((bounty) => {
+                // Get project info from the bounty's projectId
+                const project = (bounty as any).projectId ? projectsMap.get((bounty as any).projectId) : null;
+                const projectLogo = project?.logoUrl || (bounty as any).daoImage || "/placeholder.svg";
+                const projectName = project?.title || (bounty as any).daoName || "Unknown Project";
+                
+                return (
+                <Card
+                  key={bounty.id}
+                  className="group cursor-pointer overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-lg transition-all duration-300 hover:scale-[1.02] hover:shadow-xl dark:border-slate-800 dark:bg-slate-900/80"
+                  onClick={() => openBountyDialog(bounty)}
+                >
+                  <CardContent className="p-0">
+                    {/* Header with Project Info */}
+                    <div className="flex items-center gap-3 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-slate-100 p-4 dark:border-slate-800 dark:from-slate-800/50 dark:to-slate-900/50">
+                      <Avatar className="h-12 w-12 border-2 border-white shadow-lg dark:border-slate-700">
+                        <AvatarImage src={projectLogo} alt={projectName} />
+                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold">
+                          {projectName.substring(0, 2).toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-slate-900 dark:text-slate-50 truncate">
+                          {projectName}
+                        </p>
+                        <div className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-400">
+                          <Clock className="h-3 w-3" />
+                          <span>{(bounty as any).daysAgo} days ago</span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex flex-col items-end">
-                      <div className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-1">
-                        <div className="h-4 w-4 rounded-full bg-blue-500"></div>
-                        <span className="text-sm font-medium">
-                          {(bounty as any).rewardAmount} {(bounty as any).reward}
-                        </span>
+                    {/* Content */}
+                    <div className="p-4 space-y-3">
+                      <h3 className="font-semibold text-slate-900 line-clamp-2 dark:text-slate-50">
+                        {bounty.title}
+                      </h3>
+                      <p className="text-sm text-slate-600 line-clamp-2 dark:text-slate-400">
+                        {bounty.description}
+                      </p>
+
+                      {/* Category Badge */}
+                      <Badge
+                        variant="secondary"
+                        className="rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                      >
+                        {(bounty as any).category}
+                      </Badge>
+                    </div>
+
+                    {/* Footer with Reward */}
+                    <div className="border-t border-slate-200 bg-gradient-to-r from-green-50 to-emerald-50 p-4 dark:border-slate-800 dark:from-green-950/20 dark:to-emerald-950/20">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-green-500 to-emerald-500 shadow-md">
+                            <DollarSign className="h-4 w-4 text-white" />
+                          </div>
+                          <div>
+                            <p className="text-xs text-slate-600 dark:text-slate-400">Reward</p>
+                            <p className="text-lg font-bold text-slate-900 dark:text-slate-50">
+                              {(bounty as any).rewardAmount} {(bounty as any).reward}
+                            </p>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="rounded-full text-indigo-600 hover:bg-indigo-100 dark:text-indigo-400 dark:hover:bg-indigo-950/30"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openBountyDialog(bounty);
+                          }}
+                        >
+                          View Details →
+                        </Button>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))
-            )}
-          </div>
-        </div>
+              )})}
+            </div>
+          )}
+        </>
       )}
 
-      {/* Bounty Preview Dialog */}
+      {/* Enhanced Bounty Dialog */}
       <Dialog open={isDialogOpen} onOpenChange={(o) => (o ? setIsDialogOpen(true) : closeBountyDialog())}>
-        <DialogContent className="sm:max-w-xl">
-          {selectedBounty && (
+        <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-2xl">
+          {selectedBounty && (() => {
+            // Get project info for the dialog
+            const project = (selectedBounty as any).projectId ? projectsMap.get((selectedBounty as any).projectId) : null;
+            const projectLogo = project?.logoUrl || (selectedBounty as any).daoImage || "/placeholder.svg";
+            const projectName = project?.title || (selectedBounty as any).daoName || "Unknown Project";
+
+            return (
             <>
-              <DialogHeader>
-                <DialogTitle>{selectedBounty.title}</DialogTitle>
-                <DialogDescription>
-                  {selectedBounty.description}
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="flex items-center gap-2 mb-3">
-                {(selectedBounty.daoName) && (
-                  <Badge variant="outline">{selectedBounty.daoName}</Badge>
-                )}
-                {selectedBounty.reward && selectedBounty.rewardAmount && (
-                  <Badge variant="outline">{selectedBounty.rewardAmount} {selectedBounty.reward}</Badge>
-                )}
-                {selectedBounty.category && (
-                  <Badge variant="outline">{selectedBounty.category}</Badge>
-                )}
-              </div>
-
-              <div className="grid gap-3">
-                <div>
-                  <h3 className="text-sm font-medium mb-1">Submit Proposal</h3>
-                  <Textarea
-                    placeholder="Describe how you’ll approach this bounty"
-                    value={proposalContent}
-                    onChange={(e) => setProposalContent(e.target.value)}
-                    className="min-h-[100px]"
-                  />
-                  <div className="mt-2 flex gap-2">
-                    <Button onClick={handleSubmitProposal} disabled={!canSubmitProposal(selectedBounty) || isSubmittingProposal}>
-                      {isSubmittingProposal ? "Submitting..." : "Submit Proposal"}
-                    </Button>
+              {/* Header */}
+              <div className="space-y-4 border-b border-slate-200 pb-6 dark:border-slate-800">
+                <div className="flex items-start gap-4">
+                  <Avatar className="h-16 w-16 border-2 border-slate-200 shadow-lg dark:border-slate-700">
+                    <AvatarImage src={projectLogo} alt={projectName} />
+                    <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-lg font-semibold text-white">
+                      {projectName.substring(0, 2).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1">
+                    <DialogTitle className="text-2xl font-semibold text-slate-900 dark:text-slate-50">
+                      {selectedBounty.title}
+                    </DialogTitle>
+                    <DialogDescription className="mt-2 text-base text-slate-600 dark:text-slate-400">
+                      {selectedBounty.description}
+                    </DialogDescription>
                   </div>
                 </div>
 
-                {canSubmitWork(selectedBounty) && (
-                  <div className="pt-2 border-t">
-                    <h3 className="text-sm font-medium mb-1">Submit Work</h3>
+                {/* Metadata Badges */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className="rounded-full bg-indigo-100 text-indigo-700 dark:bg-indigo-950/50 dark:text-indigo-300">
+                    <Sparkles className="mr-1 h-3 w-3" />
+                    {projectName}
+                  </Badge>
+                  {selectedBounty.reward && selectedBounty.rewardAmount && (
+                    <Badge className="rounded-full bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300">
+                      <DollarSign className="mr-1 h-3 w-3" />
+                      {selectedBounty.rewardAmount} {selectedBounty.reward}
+                    </Badge>
+                  )}
+                  {(selectedBounty as any).category && (
+                    <Badge className="rounded-full bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300">
+                      {(selectedBounty as any).category}
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              {/* Proposal Section */}
+              <div className="space-y-4 py-4">
+                {canSubmitProposal(selectedBounty) && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+                        Submit Your Proposal
+                      </h3>
+                    </div>
                     <Textarea
-                      placeholder="Link or description of your work"
+                      placeholder="Describe your approach, timeline, and why you're the right person for this bounty..."
                       value={proposalContent}
                       onChange={(e) => setProposalContent(e.target.value)}
-                      className="min-h-[80px]"
+                      className="min-h-[120px] rounded-xl border-slate-300 dark:border-slate-700"
                     />
-                    <div className="mt-2 flex gap-2">
-                      <Button onClick={handleSubmitWork} disabled={isSubmittingWork} className="gradient-button">
-                        {isSubmittingWork ? "Submitting..." : "Submit Work"}
-                      </Button>
+                    <Button
+                      onClick={handleSubmitProposal}
+                      disabled={!canSubmitProposal(selectedBounty) || isSubmittingProposal || !proposalContent.trim()}
+                      className="h-11 w-full gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 font-semibold text-white shadow-lg transition-all hover:scale-[1.02] hover:shadow-xl"
+                    >
+                      {isSubmittingProposal ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Submitting Proposal...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          Submit Proposal
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {canSubmitWork(selectedBounty) && (
+                  <div className="space-y-3 rounded-2xl border border-green-200 bg-green-50 p-4 dark:border-green-900 dark:bg-green-950/20">
+                    <div className="flex items-center gap-2">
+                      <Award className="h-5 w-5 text-green-600 dark:text-green-400" />
+                      <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+                        Submit Your Work
+                      </h3>
                     </div>
+                    <Textarea
+                      placeholder="Provide a link to your work or describe your deliverable..."
+                      value={proposalContent}
+                      onChange={(e) => setProposalContent(e.target.value)}
+                      className="min-h-[100px] rounded-xl"
+                    />
+                    <Button
+                      onClick={handleSubmitWork}
+                      disabled={isSubmittingWork || !proposalContent.trim()}
+                      className="h-11 w-full gap-2 rounded-xl bg-gradient-to-r from-green-500 to-emerald-500 font-semibold text-white shadow-lg"
+                    >
+                      {isSubmittingWork ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Submitting Work...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          Submit Work
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                )}
+
+                {!canSubmitProposal(selectedBounty) && !canSubmitWork(selectedBounty) && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center dark:border-amber-900 dark:bg-amber-950/20">
+                    <p className="text-sm text-amber-800 dark:text-amber-200">
+                      {hasSubmittedProposal(selectedBounty)
+                        ? "You've already submitted a proposal for this bounty"
+                        : "You cannot submit a proposal for this bounty"}
+                    </p>
                   </div>
                 )}
               </div>
 
-              <DialogFooter>
-                <Button variant="outline" onClick={closeBountyDialog}>Close</Button>
+              <DialogFooter className="border-t border-slate-200 pt-4 dark:border-slate-800">
+                <Button
+                  variant="outline"
+                  onClick={closeBountyDialog}
+                  className="rounded-xl"
+                >
+                  Close
+                </Button>
               </DialogFooter>
             </>
-          )}
+          )})()}
         </DialogContent>
       </Dialog>
     </div>

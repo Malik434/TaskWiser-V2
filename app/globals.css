@@ -85,9 +85,15 @@
 @layer base {
   * {
     @apply border-border;
+    /* Ensure text-size-adjust works across all browsers */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   body {
     @apply bg-background text-foreground;
+    /* Ensure text-size-adjust works across all browsers */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
 }
 
@@ -267,8 +273,8 @@
   
   /* Prevent text selection during drag - improves drag accuracy */
   [data-rbd-drag-handle-context-id][data-rbd-is-drag-occurring="true"] {
-    user-select: none !important;
     -webkit-user-select: none !important;
+    user-select: none !important;
   }
 
   /* Drag preview in portal - target the element that's rendered at body level */
@@ -277,8 +283,8 @@
   body > [data-rbd-drag-handle-draggable-id] {
     z-index: 99999 !important;
     pointer-events: none !important;
-    user-select: none !important;
     -webkit-user-select: none !important;
+    user-select: none !important;
     /* Ensure cursor is grabbing during drag */
     cursor: grabbing !important;
   }
@@ -339,8 +345,8 @@
 
   /* Global drag state - prevent text selection and improve drag performance */
   body.is-dragging {
-    user-select: none !important;
     -webkit-user-select: none !important;
+    user-select: none !important;
     cursor: grabbing !important;
   }
   

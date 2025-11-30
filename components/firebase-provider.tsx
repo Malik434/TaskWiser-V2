@@ -1,7 +1,7 @@
 "use client";
 
 import type React from "react";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState, useRef } from "react";
 import { initializeApp, getApps, type FirebaseApp } from "firebase/app";
 import {
   getFirestore,
@@ -21,6 +21,7 @@ import {
   type Auth,
   onAuthStateChanged,
   type User,
+  signInWithCustomToken,
 } from "firebase/auth";
 import { getStorage, ref, type StorageReference } from "firebase/storage";
 import type { ProjectMember, UserProfile, EventLogs } from "@/lib/types";
@@ -43,6 +44,8 @@ interface FirebaseContextType {
   storage: StorageReference | null;
   user: User | null;
   isInitialized: boolean;
+  isAuthenticating: boolean;
+  ensureFirebaseAuth: (address: string, signer: any) => Promise<void>;
   addTask: (task: any) => Promise<string>;
   addTaskWithId: (taskId: string, task: any) => Promise<void>;
   getTasks: (userId: string) => Promise<any[]>;
@@ -159,6 +162,8 @@ const FirebaseContext = createContext<FirebaseContextType>({
   storage: null,
   user: null,
   isInitialized: false,
+  isAuthenticating: false,
+  ensureFirebaseAuth: async () => {},
   addTask: async (): Promise<string> => "",
   addTaskWithId: async (): Promise<void> => {},
   getTasks: async (): Promise<any[]> => [],
@@ -199,6 +204,9 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
   const [storage, setStorage] = useState<StorageReference | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isAuthenticating, setIsAuthenticating] = useState(false);
+  const authInProgressRef = useRef<Promise<void> | null>(null);
+  const currentAuthAddressRef = useRef<string | null>(null);
 
   const requireAuthenticatedUser = () => {
     if (!user && !auth?.currentUser) {
@@ -1410,6 +1418,126 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Centralized Firebase authentication function
+  const ensureFirebaseAuth = async (address: string, signer: any) => {
+    if (!auth || !signer) {
+      throw new Error("Wallet signer or Firebase auth not available");
+    }
+
+    const normalizedAddress = address.toLowerCase();
+
+    // Prevent multiple simultaneous authentication requests for the same address
+    if (authInProgressRef.current && currentAuthAddressRef.current === normalizedAddress) {
+      // Wait for the existing authentication to complete
+      await authInProgressRef.current;
+      // Re-check if authentication succeeded
+      const currentUser = auth.currentUser;
+      if (currentUser) {
+        try {
+          const tokenResult = await currentUser.getIdTokenResult();
+          const tokenWalletAddress = (
+            tokenResult.claims.walletAddress as string | undefined
+          )?.toLowerCase();
+          if (tokenWalletAddress === normalizedAddress) {
+            return; // Authentication already completed
+          }
+        } catch (error) {
+          // Continue with authentication if token check fails
+        }
+      }
+    }
+
+    // Check if there's already a valid Firebase Auth session with matching wallet address
+    const currentUser = auth.currentUser;
+    if (currentUser) {
+      try {
+        // Get the token with custom claims to check walletAddress
+        const tokenResult = await currentUser.getIdTokenResult();
+        const tokenWalletAddress = (
+          tokenResult.claims.walletAddress as string | undefined
+        )?.toLowerCase();
+
+        // If the token's walletAddress matches the current wallet, we're good
+        if (tokenWalletAddress === normalizedAddress) {
+          return; // Session is valid, no need to re-authenticate
+        }
+      } catch (error) {
+        // If token refresh fails, continue with authentication flow
+        console.warn("Failed to get token result, re-authenticating:", error);
+      }
+    }
+
+    // Create authentication promise
+    const authPromise = (async () => {
+      try {
+        setIsAuthenticating(true);
+        currentAuthAddressRef.current = normalizedAddress;
+
+        // No valid session or wallet mismatch - proceed with authentication
+        const nonceResponse = await fetch("/api/auth/nonce", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address: normalizedAddress }),
+        });
+
+        const noncePayload = await nonceResponse.json();
+        if (!nonceResponse.ok) {
+          throw new Error(noncePayload?.error || "Failed to request nonce.");
+        }
+
+        const message = `TaskWiser authentication nonce:\n${noncePayload.nonce}`;
+        
+        // Ensure signer has signMessage method before attempting to sign
+        if (!signer || typeof signer.signMessage !== "function") {
+          throw new Error("Wallet signer is not ready. Please try again.");
+        }
+        
+        console.log("Requesting signature for message:", message);
+        let signature: string;
+        try {
+          signature = await signer.signMessage(message);
+          console.log("Signature received successfully");
+          if (!signature) {
+            throw new Error("Signature was not returned from wallet");
+          }
+        } catch (error: any) {
+          console.error("Error signing message:", error);
+          // Handle user rejection or other errors
+          if (error?.code === 4001 || error?.message?.toLowerCase().includes("user rejected") || error?.message?.toLowerCase().includes("denied")) {
+            throw new Error("You need to sign the message to continue. Please approve the request in your wallet.");
+          }
+          if (error?.message) {
+            throw new Error(`Failed to sign message: ${error.message}`);
+          }
+          throw new Error("Failed to sign message. Please check your wallet and try again.");
+        }
+
+        const tokenResponse = await fetch("/api/auth/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ address: normalizedAddress, signature }),
+        });
+
+        const tokenPayload = await tokenResponse.json();
+        if (!tokenResponse.ok) {
+          throw new Error(tokenPayload?.error || "Failed to verify signature.");
+        }
+
+        await signInWithCustomToken(auth, tokenPayload.token);
+      } finally {
+        setIsAuthenticating(false);
+        if (currentAuthAddressRef.current === normalizedAddress) {
+          currentAuthAddressRef.current = null;
+        }
+        authInProgressRef.current = null;
+      }
+    })();
+
+    // Store the promise to prevent duplicate requests
+    authInProgressRef.current = authPromise;
+    await authPromise;
+  };
+
   return (
     <FirebaseContext.Provider
       value={{
@@ -1419,6 +1547,8 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         storage,
         user,
         isInitialized,
+        isAuthenticating,
+        ensureFirebaseAuth,
         addTask,
         addTaskWithId,
         getTasks,

@@ -10,10 +10,13 @@ export async function POST(request: Request) {
     const { address } = await request.json();
 
     if (!address || typeof address !== "string") {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: "Wallet address is required." },
         { status: 400 }
       );
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      response.headers.set('X-Content-Type-Options', 'nosniff');
+      return response;
     }
 
     const normalizedAddress = address.toLowerCase();
@@ -26,13 +29,19 @@ export async function POST(request: Request) {
       expiresAt: now + NONCE_TTL_MS,
     });
 
-    return NextResponse.json({ nonce });
+    const response = NextResponse.json({ nonce });
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    return response;
   } catch (error) {
     console.error("Error generating nonce:", error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: "Failed to generate nonce." },
       { status: 500 }
     );
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    return response;
   }
 }
 

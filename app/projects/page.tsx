@@ -7,7 +7,7 @@ import { ThemeToggle } from "@/components/theme-toggle";
 import { useWeb3 } from "@/components/web3-provider";
 import { useFirebase } from "@/components/firebase-provider";
 import type { Project, ProjectMember, UserProfile } from "@/lib/types";
-import { PlusCircle, Calendar, MoreHorizontal, Users, Shield, UserPlus, UserMinus, Eye, Edit, Archive, Loader2, Sparkles, Briefcase, Check, X, Mail, Crown, Target, ArrowRight, Folder } from "lucide-react";
+import { PlusCircle, Calendar, MoreHorizontal, Users, Shield, UserPlus, UserMinus, Eye, Edit, Archive, Loader2, Sparkles, Briefcase, Check, X, Mail, Crown, Target, ArrowRight, Folder, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -488,6 +488,12 @@ export default function ProjectsPage() {
     return getUserRole(project) === "admin";
   };
 
+  const isManagerOrAdmin = (project: Project | null): boolean => {
+    if (!project) return false;
+    const role = getUserRole(project);
+    return role === "admin" || role === "manager";
+  };
+
   const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case "active":
@@ -800,7 +806,7 @@ export default function ProjectsPage() {
                             </div>
 
                             {/* Actions Menu */}
-                            {isAdmin(project) ? (
+                            {isManagerOrAdmin(project) ? (
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
                                   <Button
@@ -814,32 +820,46 @@ export default function ProjectsPage() {
                                 <DropdownMenuContent align="end" className="rounded-xl">
                                   <DropdownMenuItem
                                     className="rounded-lg"
-                                    onClick={(e) => handleEditProject(project, e)}
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      router.push(`/projects/${project.id}/analytics`);
+                                    }}
                                   >
-                                    <Edit className="mr-2 h-4 w-4" />
-                                    Edit Project
+                                    <BarChart3 className="mr-2 h-4 w-4" />
+                                    Analytics
                                   </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="rounded-lg"
-                                    onClick={(e) => handleOpenMembersDialog(project, e)}
-                                  >
-                                    <Users className="mr-2 h-4 w-4" />
-                                    Manage Team
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="rounded-lg"
-                                    onClick={(e) => handleArchiveProject(project, e)}
-                                  >
-                                    <Archive className="mr-2 h-4 w-4" />
-                                    {project.status === "archived" ? "Restore" : "Archive"}
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem
-                                    className="rounded-lg text-red-600 dark:text-red-400"
-                                    onClick={(e) => handleDeleteProject(project, e)}
-                                  >
-                                    <UserMinus className="mr-2 h-4 w-4" />
-                                    Delete
-                                  </DropdownMenuItem>
+                                  {isAdmin(project) && (
+                                    <>
+                                      <DropdownMenuItem
+                                        className="rounded-lg"
+                                        onClick={(e) => handleEditProject(project, e)}
+                                      >
+                                        <Edit className="mr-2 h-4 w-4" />
+                                        Edit Project
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        className="rounded-lg"
+                                        onClick={(e) => handleOpenMembersDialog(project, e)}
+                                      >
+                                        <Users className="mr-2 h-4 w-4" />
+                                        Manage Team
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        className="rounded-lg"
+                                        onClick={(e) => handleArchiveProject(project, e)}
+                                      >
+                                        <Archive className="mr-2 h-4 w-4" />
+                                        {project.status === "archived" ? "Restore" : "Archive"}
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        className="rounded-lg text-red-600 dark:text-red-400"
+                                        onClick={(e) => handleDeleteProject(project, e)}
+                                      >
+                                        <UserMinus className="mr-2 h-4 w-4" />
+                                        Delete
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             ) : (

@@ -79,22 +79,25 @@ export async function POST(req: NextRequest) {
     cleanedTags.length === 0;
 
 if (allEmpty) {
-return NextResponse.json({
-  source: "empty",
-  estimate: {
-    totalUSD: 0,
-    estimatedHours: 0,
-    baseRateUSD: 0,
-    breakdown: {
-      lengthHours: 0,
-      titleHoursAdj: 0,
-      descriptionHoursAdj: 0,
-      tagMultiplier: 1,
-      priorityMultiplier: 1,
-    },
-    notes: "No information provided — defaulting to zero estimate."
-  }
-}, { status: 200 });
+  const response = NextResponse.json({
+    source: "empty",
+    estimate: {
+      totalUSD: 0,
+      estimatedHours: 0,
+      baseRateUSD: 0,
+      breakdown: {
+        lengthHours: 0,
+        titleHoursAdj: 0,
+        descriptionHoursAdj: 0,
+        tagMultiplier: 1,
+        priorityMultiplier: 1,
+      },
+      notes: "No information provided — defaulting to zero estimate."
+    }
+  }, { status: 200 });
+  response.headers.set('Cache-Control', 'no-cache, must-revalidate');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  return response;
 }
     
     // Compute a baseline heuristic to guide the model and use as fallback
@@ -109,13 +112,16 @@ return NextResponse.json({
       const totalUSD = Math.max(0, Math.round(hours * rate));
       const estimate: CostEstimate = { ...baseline, baseRateUSD: rate, totalUSD };
       console.log("heuristic_no_key", { tags, priority, title, description, hours, rate });
-      return NextResponse.json({ source: "heuristic", estimate }, { status: 200 });
+      const response = NextResponse.json({ source: "heuristic", estimate }, { status: 200 });
+      response.headers.set('Cache-Control', 'no-cache, must-revalidate');
+      response.headers.set('X-Content-Type-Options', 'nosniff');
+      return response;
     }
 
     const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
     const genAI = new GoogleGenerativeAI(apiKey!);
 
-    const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash-exp";
+    const modelName = process.env.GEMINI_MODEL || "gemini-2.0-flash-lite";
     const model = genAI.getGenerativeModel({ model: modelName });
 
     const prompt = `You are a seasoned engineering project estimator. Given a task title, description, tags, and priority, produce an unbiased estimate that VARIES with task complexity and skills required.
@@ -168,8 +174,8 @@ Return JSON only.`;
       },
     });
 
-    const response = await result.response;
-    const content = response.text();
+    const aiResponse = await result.response;
+    const content = aiResponse.text();
 
     let parsed: any;
     try {
@@ -180,7 +186,10 @@ Return JSON only.`;
       const hours = baseline.estimatedHours;
       const totalUSD = Math.max(0, Math.round(hours * rate));
       const fallback = { ...baseline, baseRateUSD: rate, totalUSD } satisfies CostEstimate;
-      return NextResponse.json({ source: "heuristic", estimate: fallback, error: "parse_failed" }, { status: 200 });
+      const httpResponse = NextResponse.json({ source: "heuristic", estimate: fallback, error: "parse_failed" }, { status: 200 });
+      httpResponse.headers.set('Cache-Control', 'no-cache, must-revalidate');
+      httpResponse.headers.set('X-Content-Type-Options', 'nosniff');
+      return httpResponse;
     }
 
     // Enforce dynamic base rate derived from tags/priority/title/description complexity, and keep AI hours
@@ -221,7 +230,10 @@ Return JSON only.`;
       },
     };
 
-    return NextResponse.json({ source: "ai", estimate, notes: parsed.notes ?? "" }, { status: 200 });
+    const httpResponse = NextResponse.json({ source: "ai", estimate, notes: parsed.notes ?? "" }, { status: 200 });
+    httpResponse.headers.set('Cache-Control', 'no-cache, must-revalidate');
+    httpResponse.headers.set('X-Content-Type-Options', 'nosniff');
+    return httpResponse;
   } catch (err) {
 
     try {
@@ -238,9 +250,15 @@ Return JSON only.`;
       const totalUSD = Math.max(0, Math.round(hours * rate));
       const fallback = { ...baseline, baseRateUSD: rate, totalUSD } satisfies CostEstimate;
       console.log("heuristic_ai_error", { tags, priority, title, description, hours, rate });
-      return NextResponse.json({ source: "heuristic", estimate: fallback, error: "ai_error"}, { status: 200 });
+      const response = NextResponse.json({ source: "heuristic", estimate: fallback, error: "ai_error"}, { status: 200 });
+      response.headers.set('Cache-Control', 'no-cache, must-revalidate');
+      response.headers.set('X-Content-Type-Options', 'nosniff');
+      return response;
     } catch {
-      return NextResponse.json({ error: "failed" }, { status: 500 });
+      const response = NextResponse.json({ error: "failed" }, { status: 500 });
+      response.headers.set('Cache-Control', 'no-cache, must-revalidate');
+      response.headers.set('X-Content-Type-Options', 'nosniff');
+      return response;
     }
   }
 }

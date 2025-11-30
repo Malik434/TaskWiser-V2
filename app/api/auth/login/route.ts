@@ -13,17 +13,23 @@ export async function POST(request: Request) {
     const { address, signature } = await request.json();
 
     if (!address || typeof address !== "string") {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: "Wallet address is required." },
         { status: 400 }
       );
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      response.headers.set('X-Content-Type-Options', 'nosniff');
+      return response;
     }
 
     if (!signature || typeof signature !== "string") {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: "Signature is required." },
         { status: 400 }
       );
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      response.headers.set('X-Content-Type-Options', 'nosniff');
+      return response;
     }
 
     const normalizedAddress = address.toLowerCase();
@@ -33,10 +39,13 @@ export async function POST(request: Request) {
     const nonceDoc = await nonceDocRef.get();
 
     if (!nonceDoc.exists) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: "Nonce not found. Please request a new one." },
         { status: 400 }
       );
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      response.headers.set('X-Content-Type-Options', 'nosniff');
+      return response;
     }
 
     const data = nonceDoc.data() as {
@@ -46,18 +55,24 @@ export async function POST(request: Request) {
 
     if (!data?.nonce) {
       await nonceDocRef.delete();
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: "Nonce data invalid. Please retry." },
         { status: 400 }
       );
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      response.headers.set('X-Content-Type-Options', 'nosniff');
+      return response;
     }
 
     if (data.expiresAt && Date.now() > data.expiresAt) {
       await nonceDocRef.delete();
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: "Nonce expired. Please request a new one." },
         { status: 400 }
       );
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      response.headers.set('X-Content-Type-Options', 'nosniff');
+      return response;
     }
 
     const expectedMessage = buildMessage(data.nonce);
@@ -66,10 +81,13 @@ export async function POST(request: Request) {
       .toLowerCase();
 
     if (recoveredAddress !== normalizedAddress) {
-      return NextResponse.json(
+      const response = NextResponse.json(
         { error: "Signature does not match wallet address." },
         { status: 400 }
       );
+      response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      response.headers.set('X-Content-Type-Options', 'nosniff');
+      return response;
     }
 
     await nonceDocRef.delete();
@@ -80,12 +98,18 @@ export async function POST(request: Request) {
       usageLevel: DEFAULT_USAGE_LEVEL,
     });
 
-    return NextResponse.json({ token: customToken });
+    const response = NextResponse.json({ token: customToken });
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    return response;
   } catch (error) {
     console.error("Error verifying wallet signature:", error);
-    return NextResponse.json(
+    const response = NextResponse.json(
       { error: "Failed to authenticate wallet." },
       { status: 500 }
     );
+    response.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    response.headers.set('X-Content-Type-Options', 'nosniff');
+    return response;
   }
 }

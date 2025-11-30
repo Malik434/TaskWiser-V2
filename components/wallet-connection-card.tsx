@@ -1,78 +1,20 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { useWeb3 } from "./web3-provider"
 import { useFirebase } from "./firebase-provider"
 import { Wallet, ArrowRight, Shield, Sparkles, Loader2, Lock, Zap } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { signInWithCustomToken } from "firebase/auth"
 import { useToast } from "@/hooks/use-toast"
 
 export function WalletConnectionCard() {
   const { connectWallet, isConnected, isConnecting, account, signer } = useWeb3()
-  const { auth, user } = useFirebase()
+  const { auth, user, ensureFirebaseAuth, isAuthenticating } = useFirebase()
   const router = useRouter()
   const { toast } = useToast()
-  const [isAuthenticating, setIsAuthenticating] = useState(false)
-
-  // Firebase authentication function
-  const ensureFirebaseAuth = useCallback(
-    async (address: string) => {
-      if (!auth || !signer) {
-        throw new Error("Wallet signer or Firebase auth not available");
-      }
-
-      const normalizedAddress = address.toLowerCase();
-      
-      // Check if there's already a valid Firebase Auth session
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        try {
-          const tokenResult = await currentUser.getIdTokenResult();
-          const tokenWalletAddress = (
-            tokenResult.claims.walletAddress as string | undefined
-          )?.toLowerCase();
-          
-          if (tokenWalletAddress === normalizedAddress) {
-            return; // Session is valid
-          }
-        } catch (error) {
-          console.warn("Failed to get token result, re-authenticating:", error);
-        }
-      }
-
-      // Get nonce and sign message
-      const nonceResponse = await fetch("/api/auth/nonce", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: normalizedAddress }),
-      });
-
-      const noncePayload = await nonceResponse.json();
-      if (!nonceResponse.ok) {
-        throw new Error(noncePayload?.error || "Failed to request nonce.");
-      }
-
-      const message = `TaskWiser authentication nonce:\n${noncePayload.nonce}`;
-      const signature = await signer.signMessage(message);
-
-      const tokenResponse = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: normalizedAddress, signature }),
-      });
-
-      const tokenPayload = await tokenResponse.json();
-      if (!tokenResponse.ok) {
-        throw new Error(tokenPayload?.error || "Failed to verify signature.");
-      }
-
-      await signInWithCustomToken(auth, tokenPayload.token);
-    },
-    [auth, signer]
-  );
+  const authRequestRef = useRef<Promise<void> | null>(null)
 
   // Trigger authentication after wallet connection
   useEffect(() => {
@@ -89,10 +31,38 @@ export function WalletConnectionCard() {
         return;
       }
 
-      setIsAuthenticating(true);
+      // Prevent duplicate authentication requests
+      if (authRequestRef.current) {
+        try {
+          await authRequestRef.current;
+          // Check again after waiting
+          if (user && !cancelled) {
+            router.push("/dashboard");
+          }
+        } catch (error) {
+          // Ignore errors from previous request, will retry
+        }
+        return;
+      }
+
+      // Verify signer is ready before attempting authentication
+      if (typeof signer.signMessage !== "function") {
+        console.error("Signer is not ready. Please try again.");
+        toast({
+          title: "Wallet not ready",
+          description: "Please wait a moment and try again.",
+          variant: "destructive",
+        });
+        return;
+      }
 
       try {
-        await ensureFirebaseAuth(account);
+        console.log("Starting authentication for account:", account);
+        // Use centralized authentication function
+        authRequestRef.current = ensureFirebaseAuth(account, signer);
+        await authRequestRef.current;
+        authRequestRef.current = null;
+
         if (!cancelled) {
           // Successfully authenticated, redirect
           toast({
@@ -102,14 +72,17 @@ export function WalletConnectionCard() {
           router.push("/dashboard");
         }
       } catch (error) {
+        authRequestRef.current = null;
         if (!cancelled) {
           console.error("Error authenticating wallet:", error);
+          const errorMessage = error instanceof Error ? error.message : "Please try again.";
           toast({
             title: "Authentication failed",
-            description: error instanceof Error ? error.message : "Please try again.",
+            description: errorMessage.includes("User rejected") || errorMessage.includes("denied") 
+              ? "Please sign the message to continue."
+              : errorMessage,
             variant: "destructive",
           });
-          setIsAuthenticating(false);
         }
       }
     };
@@ -245,29 +218,73 @@ export function WalletConnectionCard() {
             </div>
 
             {/* Primary CTA */}
-            <Button
-              onClick={connectWallet}
-              disabled={isConnecting || isAuthenticating}
-              className="h-12 w-full gap-2 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 text-base font-semibold text-white shadow-[0_10px_40px_rgba(99,102,241,0.4)] transition-all hover:scale-[1.02] hover:shadow-[0_15px_50px_rgba(99,102,241,0.5)] disabled:opacity-50 disabled:hover:scale-100"
-            >
-              {isConnecting ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Connecting to wallet...
-                </>
-              ) : isAuthenticating ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  Authenticating...
-                </>
-              ) : (
-                <>
-                  <Wallet className="h-5 w-5" />
-                  Connect Wallet to Continue
-                  <ArrowRight className="h-5 w-5" />
-                </>
-              )}
-            </Button>
+            {isConnected && account && signer && !user ? (
+              <Button
+                onClick={async () => {
+                  try {
+                    if (!account || !signer) return;
+                    
+                    // Verify signer is ready
+                    if (typeof signer.signMessage !== "function") {
+                      toast({
+                        title: "Wallet not ready",
+                        description: "Please wait a moment and try again.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+
+                    await ensureFirebaseAuth(account, signer);
+                  } catch (error) {
+                    console.error("Error authenticating:", error);
+                    toast({
+                      title: "Authentication failed",
+                      description: error instanceof Error ? error.message : "Please try again.",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+                disabled={isConnecting || isAuthenticating}
+                className="h-12 w-full gap-2 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 text-base font-semibold text-white shadow-[0_10px_40px_rgba(99,102,241,0.4)] transition-all hover:scale-[1.02] hover:shadow-[0_15px_50px_rgba(99,102,241,0.5)] disabled:opacity-50 disabled:hover:scale-100"
+              >
+                {isAuthenticating ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Please sign the message in your wallet...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-5 w-5" />
+                    Sign Message to Continue
+                    <ArrowRight className="h-5 w-5" />
+                  </>
+                )}
+              </Button>
+            ) : (
+              <Button
+                onClick={connectWallet}
+                disabled={isConnecting || isAuthenticating}
+                className="h-12 w-full gap-2 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-fuchsia-500 text-base font-semibold text-white shadow-[0_10px_40px_rgba(99,102,241,0.4)] transition-all hover:scale-[1.02] hover:shadow-[0_15px_50px_rgba(99,102,241,0.5)] disabled:opacity-50 disabled:hover:scale-100"
+              >
+                {isConnecting ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Connecting to wallet...
+                  </>
+                ) : isAuthenticating ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Authenticating...
+                  </>
+                ) : (
+                  <>
+                    <Wallet className="h-5 w-5" />
+                    Connect Wallet to Continue
+                    <ArrowRight className="h-5 w-5" />
+                  </>
+                )}
+              </Button>
+            )}
 
             {/* Footer Link */}
             <div className="text-center">

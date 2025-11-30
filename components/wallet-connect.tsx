@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { useWeb3 } from "./web3-provider";
 import { useFirebase } from "./firebase-provider";
@@ -8,7 +8,7 @@ import { ProfileSetupForm } from "./profile-setup-form";
 import { Wallet, Loader2 } from "lucide-react";
 import type { UserProfile } from "@/lib/types";
 import { usePathname } from "next/navigation";
-import { signInWithCustomToken, signOut } from "firebase/auth";
+import { signOut } from "firebase/auth";
 import { useToast } from "@/components/ui/use-toast";
 
 const PROFILE_CACHE_PREFIX = "wallet-profile:";
@@ -53,12 +53,13 @@ export function WalletConnect() {
     isConnected,
     signer,
   } = useWeb3();
-  const { auth, getUserProfile } = useFirebase();
+  const { auth, getUserProfile, ensureFirebaseAuth, isAuthenticating } = useFirebase();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(() => {
     return account ? readCachedProfile(account) : null;
   });
   const [showProfileSetup, setShowProfileSetup] = useState(false);
   const [isCheckingProfile, setIsCheckingProfile] = useState(false);
+  const authRequestRef = useRef<Promise<void> | null>(null);
   const pathname = usePathname();
   const { toast } = useToast();
   const cachedProfileUsername = useMemo(() => {
@@ -70,65 +71,6 @@ export function WalletConnect() {
 
   // Check if we're on the landing page
   const isLandingPage = pathname === "/landing";
-
-  const ensureFirebaseAuth = useCallback(
-    async (address: string) => {
-      if (!auth || !signer) {
-        throw new Error("Wallet signer or Firebase auth not available");
-      }
-
-      const normalizedAddress = address.toLowerCase();
-      
-      // Check if there's already a valid Firebase Auth session with matching wallet address
-      const currentUser = auth.currentUser;
-      if (currentUser) {
-        try {
-          // Get the token with custom claims to check walletAddress
-          const tokenResult = await currentUser.getIdTokenResult();
-          const tokenWalletAddress = (
-            tokenResult.claims.walletAddress as string | undefined
-          )?.toLowerCase();
-          
-          // If the token's walletAddress matches the current wallet, we're good
-          if (tokenWalletAddress === normalizedAddress) {
-            return; // Session is valid, no need to re-authenticate
-          }
-        } catch (error) {
-          // If token refresh fails, continue with authentication flow
-          console.warn("Failed to get token result, re-authenticating:", error);
-        }
-      }
-
-      // No valid session or wallet mismatch - proceed with authentication
-      const nonceResponse = await fetch("/api/auth/nonce", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: normalizedAddress }),
-      });
-
-      const noncePayload = await nonceResponse.json();
-      if (!nonceResponse.ok) {
-        throw new Error(noncePayload?.error || "Failed to request nonce.");
-      }
-
-      const message = `TaskWiser authentication nonce:\n${noncePayload.nonce}`;
-      const signature = await signer.signMessage(message);
-
-      const tokenResponse = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ address: normalizedAddress, signature }),
-      });
-
-      const tokenPayload = await tokenResponse.json();
-      if (!tokenResponse.ok) {
-        throw new Error(tokenPayload?.error || "Failed to verify signature.");
-      }
-
-      await signInWithCustomToken(auth, tokenPayload.token);
-    },
-    [auth, signer]
-  );
 
   useEffect(() => {
     if (!account || !isConnected) {
@@ -159,10 +101,26 @@ export function WalletConnect() {
         return;
       }
 
+      // Prevent duplicate authentication requests
+      if (authRequestRef.current) {
+        try {
+          await authRequestRef.current;
+        } catch (error) {
+          // Ignore errors from previous request
+        }
+      }
+
       setIsCheckingProfile(true);
 
       try {
-        await ensureFirebaseAuth(account);
+        // Use centralized authentication function
+        authRequestRef.current = ensureFirebaseAuth(account, signer);
+        await authRequestRef.current;
+        authRequestRef.current = null;
+
+        if (cancelled) return;
+        if (account?.toLowerCase() !== activeAddress) return;
+
         const profile = await getUserProfile(account);
         if (cancelled) return;
         if (account?.toLowerCase() !== activeAddress) return;
@@ -171,6 +129,7 @@ export function WalletConnect() {
         setShowProfileSetup(!profile);
         writeProfileCache(account, profile);
       } catch (error) {
+        authRequestRef.current = null;
         if (!cancelled) {
           console.error("Error syncing wallet profile:", error);
           toast({
@@ -269,7 +228,7 @@ export function WalletConnect() {
         ) : (
           <Button
             onClick={handleConnect}
-            disabled={isConnecting || isCheckingProfile}
+            disabled={isConnecting || isCheckingProfile || isAuthenticating}
             size={isLandingPage ? "default" : "sm"}
             className={`gap-1.5 text-xs transition-all duration-300 sm:gap-2 sm:text-sm ${
               isLandingPage
@@ -277,10 +236,12 @@ export function WalletConnect() {
                 : ""
             }`}
           >
-            {isConnecting || isCheckingProfile ? (
+            {isConnecting || isCheckingProfile || isAuthenticating ? (
               <>
                 <Loader2 className="h-3.5 w-3.5 animate-spin sm:h-4 sm:w-4" />
-                <span className="hidden sm:inline">{isConnecting ? "Connecting..." : "Checking..."}</span>
+                <span className="hidden sm:inline">
+                  {isConnecting ? "Connecting..." : isAuthenticating ? "Signing..." : "Checking..."}
+                </span>
                 <span className="sm:hidden">...</span>
               </>
             ) : (

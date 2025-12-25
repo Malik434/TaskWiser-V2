@@ -10,12 +10,16 @@ export const ESCROW_ABI = [
   "function lockEscrow(bytes32 taskId, address token, address assignee, uint256 amount) external",
   "function releaseEscrow(bytes32 taskId) external",
   "function retrieveEscrow(bytes32 taskId, string calldata reason) external",
+  "function raiseDispute(bytes32 taskId) external",
+  "function resolveDispute(bytes32 taskId, address winner) external",
   "function getEscrow(bytes32 taskId) external view returns (tuple(bytes32 taskId, address token, address admin, address assignee, uint256 amount, uint8 status, uint256 lockedAt, uint256 releasedAt))",
   "function isEscrowLocked(bytes32 taskId) external view returns (bool)",
   "function getEscrowStatus(bytes32 taskId) external view returns (uint8)",
   "event EscrowLocked(bytes32 indexed taskId, address indexed token, address indexed admin, address assignee, uint256 amount)",
   "event EscrowReleased(bytes32 indexed taskId, address indexed assignee, uint256 amount)",
   "event EscrowRefunded(bytes32 indexed taskId, address indexed admin, uint256 amount, string reason)",
+  "event EscrowDisputed(bytes32 indexed taskId, address indexed raisedBy)",
+  "event EscrowResolved(bytes32 indexed taskId, address indexed winner, uint256 amount)",
 ] as const;
 
 // Escrow status enum (matches contract)
@@ -24,6 +28,7 @@ export enum EscrowStatus {
   Locked = 1,
   Released = 2,
   Refunded = 3,
+  Disputed = 4,
 }
 
 // Token addresses on Sepolia
@@ -217,5 +222,32 @@ export async function getEscrowDetails(
     lockedAt: escrow.lockedAt,
     releasedAt: escrow.releasedAt,
   };
+}
+
+/**
+ * Raise a dispute
+ */
+export async function raiseDispute(
+  signer: ethers.Signer,
+  taskId: string
+): Promise<ethers.ContractTransactionResponse> {
+  const contract = getEscrowContract(signer);
+  const taskIdBytes32 = taskIdToBytes32(taskId);
+
+  return contract.raiseDispute(taskIdBytes32);
+}
+
+/**
+ * Resolve a dispute
+ */
+export async function resolveDispute(
+  signer: ethers.Signer,
+  taskId: string,
+  winnerAddress: string
+): Promise<ethers.ContractTransactionResponse> {
+  const contract = getEscrowContract(signer);
+  const taskIdBytes32 = taskIdToBytes32(taskId);
+
+  return contract.resolveDispute(taskIdBytes32, winnerAddress);
 }
 

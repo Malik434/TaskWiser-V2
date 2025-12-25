@@ -59,19 +59,23 @@ export interface Task {
   isOpenBounty?: boolean
   proposals?: TaskProposal[]
   escrowEnabled?: boolean
-  escrowStatus?: "pending" | "locked" | "released" | "refunded"
+  escrowStatus?: "pending" | "locked" | "released" | "refunded" | "disputed"
+  activeDisputeId?: string
   createdAt: string
   updatedAt?: string
 }
 
 export interface TaskProposal {
   id: string
+  taskId: string
   userId: string
   username: string
   profilePicture?: string
+  content?: string // Alias for message to support legacy usage
   message: string
   status: "pending" | "approved" | "rejected"
   submittedAt: string
+  createdAt?: string // Alias for submittedAt
 }
 
 export interface Bounty {
@@ -134,4 +138,16 @@ export interface EventLogs {
   };
   description?: string;
   createdAt: Timestamp;
+}
+
+export interface Dispute {
+  id: string
+  taskId: string
+  raisedBy: string // userId
+  reason: string
+  status: "open" | "resolved" | "dismissed"
+  resolution?: "release" | "refund"
+  createdAt: string
+  transactionHash?: string
+  aiAnalysis?: string
 }

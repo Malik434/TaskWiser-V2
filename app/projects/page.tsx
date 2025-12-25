@@ -9,7 +9,7 @@ import { useFirebase } from "@/components/firebase-provider";
 import type { Project, ProjectMember, UserProfile } from "@/lib/types";
 import { PlusCircle, Calendar, MoreHorizontal, Users, Shield, UserPlus, UserMinus, Eye, Edit, Archive, Loader2, Sparkles, Briefcase, Check, X, Mail, Crown, Target, ArrowRight, Folder, BarChart3 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -92,12 +92,12 @@ export default function ProjectsPage() {
 
       // Fetch all projects
       const fetchedProjects = await getProjects();
-      
+
       // Filter to only show projects where the user is a member
-      const userProjects = fetchedProjects.filter(project => 
+      const userProjects = fetchedProjects.filter(project =>
         project.members?.some((member: ProjectMember) => member.userId === profile.id)
       );
-      
+
       setProjects(userProjects);
     } catch (error) {
       console.error("Error fetching projects:", error);
@@ -195,13 +195,13 @@ export default function ProjectsPage() {
 
   const handleArchiveProject = async (project: Project, e: React.MouseEvent) => {
     e.stopPropagation();
-    
+
     try {
       const newStatus = project.status === "archived" ? "active" : "archived";
       await updateProject(project.id, { status: newStatus });
-      
+
       // Update local state
-      setProjects(projects.map(p => 
+      setProjects(projects.map(p =>
         p.id === project.id ? { ...p, status: newStatus } : p
       ));
 
@@ -243,7 +243,7 @@ export default function ProjectsPage() {
       });
 
       // Update local state
-      setProjects(projects.map(p => 
+      setProjects(projects.map(p =>
         p.id === selectedProject.id ? { ...selectedProject, logoUrl } : p
       ));
 
@@ -277,9 +277,9 @@ export default function ProjectsPage() {
 
       await updateProject(selectedProject.id, { members: updatedMembers });
       setSelectedProject({ ...selectedProject, members: updatedMembers });
-      
+
       // Update the projects list
-      setProjects(projects.map(p => 
+      setProjects(projects.map(p =>
         p.id === selectedProject.id ? { ...p, members: updatedMembers } : p
       ));
 
@@ -310,7 +310,7 @@ export default function ProjectsPage() {
     try {
       // Get user profile by wallet address
       const userProfile = await getUserProfile(newMemberAddress);
-      
+
       if (!userProfile) {
         toast({
           title: "Error",
@@ -340,12 +340,12 @@ export default function ProjectsPage() {
 
       const updatedMembers = [...(selectedProject.members || []), newMember];
       await updateProject(selectedProject.id, { members: updatedMembers });
-      
+
       setSelectedProject({ ...selectedProject, members: updatedMembers });
-      setProjects(projects.map(p => 
+      setProjects(projects.map(p =>
         p.id === selectedProject.id ? { ...p, members: updatedMembers } : p
       ));
-      
+
       setNewMemberAddress("");
       toast({
         title: "Success",
@@ -376,10 +376,10 @@ export default function ProjectsPage() {
       }
 
       const updatedMembers = selectedProject.members?.filter(m => m.userId !== member.userId) || [];
-      
+
       await updateProject(selectedProject.id, { members: updatedMembers });
       setSelectedProject({ ...selectedProject, members: updatedMembers });
-      setProjects(projects.map(p => 
+      setProjects(projects.map(p =>
         p.id === selectedProject.id ? { ...p, members: updatedMembers } : p
       ));
 
@@ -474,11 +474,11 @@ export default function ProjectsPage() {
 
   const getUserRole = (project: Project | null): string => {
     if (!account || !project) return "none";
-    
+
     // Get current user's profile
     const currentUserProfile = availableUsers.find(u => u.address.toLowerCase() === account.toLowerCase());
     if (!currentUserProfile) return "none";
-    
+
     const member = project.members?.find(m => m.userId === currentUserProfile.id);
     return member?.role || "none";
   };
@@ -644,109 +644,109 @@ export default function ProjectsPage() {
                       Create Project
                     </Button>
                   </DialogTrigger>
-              <DialogContent className="rounded-2xl sm:max-w-[500px]">
-                <DialogHeader className="border-b border-slate-200 pb-4 dark:border-slate-800">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 shadow-lg">
-                      <PlusCircle className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-50">
-                        Create New Project
-                      </DialogTitle>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        Set up your collaborative workspace
-                      </p>
-                    </div>
-                  </div>
-                </DialogHeader>
-                <div className="space-y-5 py-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="name" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Project Name
-                    </Label>
-                    <Input
-                      id="name"
-                      value={newProject.title}
-                      onChange={(e) =>
-                        setNewProject({ ...newProject, title: e.target.value })
-                      }
-                      placeholder="Enter a memorable project name"
-                      className="h-11 rounded-xl border-slate-300 dark:border-slate-700"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Description
-                    </Label>
-                    <Textarea
-                      id="description"
-                      value={newProject.description}
-                      onChange={(e) =>
-                        setNewProject({
-                          ...newProject,
-                          description: e.target.value,
-                        })
-                      }
-                      placeholder="Describe what this project is about..."
-                      className="min-h-[100px] rounded-xl border-slate-300 dark:border-slate-700"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Project Logo
-                    </Label>
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-16 w-16 border-2 border-slate-200 shadow-lg dark:border-slate-700">
-                        <AvatarImage src={newProjectLogoPreview || "/placeholder.svg"} />
-                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white text-lg font-semibold">
-                          {newProject.title?.substring(0, 2).toUpperCase() || "PR"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0] || null;
-                          if (f) {
-                            setNewProjectLogoFile(f);
-                            setNewProjectLogoPreview(URL.createObjectURL(f));
+                  <DialogContent className="rounded-2xl sm:max-w-[500px]">
+                    <DialogHeader className="border-b border-slate-200 pb-4 dark:border-slate-800">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 shadow-lg">
+                          <PlusCircle className="h-6 w-6 text-white" />
+                        </div>
+                        <div>
+                          <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-50">
+                            Create New Project
+                          </DialogTitle>
+                          <p className="text-sm text-slate-600 dark:text-slate-400">
+                            Set up your collaborative workspace
+                          </p>
+                        </div>
+                      </div>
+                    </DialogHeader>
+                    <div className="space-y-5 py-6">
+                      <div className="space-y-2">
+                        <Label htmlFor="name" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          Project Name
+                        </Label>
+                        <Input
+                          id="name"
+                          value={newProject.title}
+                          onChange={(e) =>
+                            setNewProject({ ...newProject, title: e.target.value })
                           }
-                        }}
-                        className="rounded-xl border-slate-300 dark:border-slate-700"
-                      />
+                          placeholder="Enter a memorable project name"
+                          className="h-11 rounded-xl border-slate-300 dark:border-slate-700"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="description" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          Description
+                        </Label>
+                        <Textarea
+                          id="description"
+                          value={newProject.description}
+                          onChange={(e) =>
+                            setNewProject({
+                              ...newProject,
+                              description: e.target.value,
+                            })
+                          }
+                          placeholder="Describe what this project is about..."
+                          className="min-h-[100px] rounded-xl border-slate-300 dark:border-slate-700"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                          Project Logo
+                        </Label>
+                        <div className="flex items-center gap-4">
+                          <Avatar className="h-16 w-16 border-2 border-slate-200 shadow-lg dark:border-slate-700">
+                            <AvatarImage src={newProjectLogoPreview || "/placeholder.svg"} />
+                            <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white text-lg font-semibold">
+                              {newProject.title?.substring(0, 2).toUpperCase() || "PR"}
+                            </AvatarFallback>
+                          </Avatar>
+                          <Input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => {
+                              const f = e.target.files?.[0] || null;
+                              if (f) {
+                                setNewProjectLogoFile(f);
+                                setNewProjectLogoPreview(URL.createObjectURL(f));
+                              }
+                            }}
+                            className="rounded-xl border-slate-300 dark:border-slate-700"
+                          />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-                <div className="flex gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsAddProjectDialogOpen(false)}
-                    className="flex-1 rounded-xl"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleAddProject}
-                    disabled={isUploadingLogo}
-                    className="flex-1 gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 font-semibold text-white shadow-lg"
-                  >
-                    {isUploadingLogo ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <PlusCircle className="h-4 w-4" />
-                        Create Project
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </div>
+                    <div className="flex gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
+                      <Button
+                        variant="outline"
+                        onClick={() => setIsAddProjectDialogOpen(false)}
+                        className="flex-1 rounded-xl"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleAddProject}
+                        disabled={isUploadingLogo}
+                        className="flex-1 gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 font-semibold text-white shadow-lg"
+                      >
+                        {isUploadingLogo ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <PlusCircle className="h-4 w-4" />
+                            Create Project
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              </div>
 
               {/* Projects Grid */}
               {projects.length === 0 ? (
@@ -771,15 +771,14 @@ export default function ProjectsPage() {
                     >
                       <CardContent className="p-0">
                         {/* Header with gradient */}
-                        <div className={`relative overflow-hidden border-b border-slate-200 p-5 dark:border-slate-800 ${
-                          project.status === "active"
+                        <div className={`relative overflow-hidden border-b border-slate-200 p-5 dark:border-slate-800 ${project.status === "active"
                             ? "bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30"
                             : project.status === "completed"
-                            ? "bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30"
-                            : "bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50"
-                        }`}>
+                              ? "bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30"
+                              : "bg-gradient-to-r from-slate-50 to-slate-100 dark:from-slate-800/50 dark:to-slate-900/50"
+                          }`}>
                           <div className="absolute right-0 top-0 h-full w-1/2 bg-gradient-to-l from-white/50 to-transparent dark:from-slate-900/50" />
-                          
+
                           <div className="relative flex items-start justify-between gap-3">
                             <div className="flex items-center gap-3">
                               <Avatar className="h-12 w-12 border-2 border-white shadow-lg transition-transform group-hover:scale-110 dark:border-slate-700">
@@ -894,8 +893,8 @@ export default function ProjectsPage() {
                                 project.status === "active"
                                   ? "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-300"
                                   : project.status === "completed"
-                                  ? "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
-                                  : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                    ? "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
+                                    : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
                               )}
                             >
                               {project.status === "active" && <Target className="mr-1 h-3 w-3" />}
@@ -917,313 +916,313 @@ export default function ProjectsPage() {
 
           {/* Members Management Dialog */}
           <Dialog open={isMembersDialogOpen} onOpenChange={setIsMembersDialogOpen}>
-              <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-[700px]">
-                <DialogHeader className="border-b border-slate-200 pb-4 dark:border-slate-800">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
-                      <Users className="h-6 w-6 text-white" />
+            <DialogContent className="max-h-[90vh] overflow-y-auto rounded-2xl sm:max-w-[700px]">
+              <DialogHeader className="border-b border-slate-200 pb-4 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-cyan-500 shadow-lg">
+                    <Users className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-50">
+                      Team Management
+                    </DialogTitle>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      {selectedProject?.title}
+                    </p>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="space-y-6 py-6">
+                {/* Invite Section */}
+                {selectedProject && isAdmin(selectedProject) && (
+                  <div className="space-y-4 rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50 p-5 dark:border-indigo-900 dark:from-indigo-950/30 dark:to-purple-950/30">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500">
+                        <UserPlus className="h-4 w-4 text-white" />
+                      </div>
+                      <h3 className="font-semibold text-slate-900 dark:text-slate-50">
+                        Invite Contributors
+                      </h3>
                     </div>
-                    <div>
-                      <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-50">
-                        Team Management
-                      </DialogTitle>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        {selectedProject?.title}
-                      </p>
+                    <div className="space-y-3">
+                      <UserSearchSelect
+                        label="Search Contributors"
+                        placeholder="Search by username or wallet address..."
+                        selectedUserId={selectedInviteUserId}
+                        users={(availableUsers || []).filter(u => !selectedProject.members?.some(m => m.userId === u.id))}
+                        isLoadingUsers={isLoadingUsers}
+                        onSelectUser={setSelectedInviteUserId}
+                        emptyLabel="Clear selection"
+                      />
+                      <Button
+                        size="sm"
+                        disabled={!selectedInviteUserId || isInvitingUserId !== null || invitedUserIds.has(selectedInviteUserId!)}
+                        onClick={() => {
+                          const user = availableUsers.find(u => u.id === selectedInviteUserId);
+                          if (user) handleInviteUser(user);
+                        }}
+                        className="w-full gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 font-semibold text-white shadow-lg"
+                      >
+                        {isInvitingUserId && selectedInviteUserId === isInvitingUserId ? (
+                          <>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            Sending Invitation...
+                          </>
+                        ) : invitedUserIds.has(selectedInviteUserId || "") ? (
+                          <>
+                            <Check className="h-4 w-4" />
+                            Invitation Sent
+                          </>
+                        ) : (
+                          <>
+                            <Mail className="h-4 w-4" />
+                            Send Invitation
+                          </>
+                        )}
+                      </Button>
                     </div>
                   </div>
-                </DialogHeader>
-            
-                <div className="space-y-6 py-6">
-                  {/* Invite Section */}
-                  {selectedProject && isAdmin(selectedProject) && (
-                    <div className="space-y-4 rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 to-purple-50 p-5 dark:border-indigo-900 dark:from-indigo-950/30 dark:to-purple-950/30">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-purple-500">
-                          <UserPlus className="h-4 w-4 text-white" />
-                        </div>
-                        <h3 className="font-semibold text-slate-900 dark:text-slate-50">
-                          Invite Contributors
-                        </h3>
-                      </div>
-                      <div className="space-y-3">
-                        <UserSearchSelect
-                          label="Search Contributors"
-                          placeholder="Search by username or wallet address..."
-                          selectedUserId={selectedInviteUserId}
-                          availableUsers={(availableUsers || []).filter(u => !selectedProject.members?.some(m => m.userId === u.id))}
-                          isLoadingUsers={isLoadingUsers}
-                          onSelectUser={setSelectedInviteUserId}
-                          emptyLabel="Clear selection"
-                        />
-                        <Button
-                          size="sm"
-                          disabled={!selectedInviteUserId || isInvitingUserId !== null || invitedUserIds.has(selectedInviteUserId!)}
-                          onClick={() => {
-                            const user = availableUsers.find(u => u.id === selectedInviteUserId);
-                            if (user) handleInviteUser(user);
-                          }}
-                          className="w-full gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 font-semibold text-white shadow-lg"
-                        >
-                          {isInvitingUserId && selectedInviteUserId === isInvitingUserId ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                              Sending Invitation...
-                            </>
-                          ) : invitedUserIds.has(selectedInviteUserId || "") ? (
-                            <>
-                              <Check className="h-4 w-4" />
-                              Invitation Sent
-                            </>
-                          ) : (
-                            <>
-                              <Mail className="h-4 w-4" />
-                              Send Invitation
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                )}
 
-                  {/* Current Members */}
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-slate-900 dark:text-slate-50">
-                        Team Members
-                      </h3>
-                      <Badge className="rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
-                        {selectedProject?.members?.length || 0} members
-                      </Badge>
-                    </div>
-                    
-                    {selectedProject?.members && selectedProject.members.length > 0 ? (
-                      <div className="space-y-2">
-                        {selectedProject.members.map((member) => {
-                          const userProfile = availableUsers.find(u => u.id === member.userId);
-                          const isCurrentUserAdmin = isAdmin(selectedProject);
-                          const isMemberAdmin = member.role === "admin";
-                          
-                          return (
-                            <div
-                              key={member.userId}
-                              className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 p-4 transition-all hover:bg-slate-100/50 dark:border-slate-800 dark:bg-slate-800/30 dark:hover:bg-slate-800/50"
-                            >
-                              <div className="flex items-center gap-3">
-                                <Avatar className="h-12 w-12 border-2 border-white shadow-md dark:border-slate-700">
-                                  <AvatarImage
-                                    src={userProfile?.profilePicture || "/placeholder.svg"}
-                                    alt={userProfile?.username || "User"}
-                                  />
-                                  <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold">
-                                    {userProfile?.username?.substring(0, 2).toUpperCase() || "??"}
-                                  </AvatarFallback>
-                                </Avatar>
-                                <div>
-                                  <p className="font-semibold text-slate-900 dark:text-slate-50">
-                                    {userProfile?.username || "Unknown User"}
-                                  </p>
-                                  <p className="text-xs text-slate-600 dark:text-slate-400">
-                                    {userProfile?.address.substring(0, 10)}...{userProfile?.address.substring(38)}
-                                  </p>
-                                </div>
-                              </div>
+                {/* Current Members */}
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-slate-900 dark:text-slate-50">
+                      Team Members
+                    </h3>
+                    <Badge className="rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300">
+                      {selectedProject?.members?.length || 0} members
+                    </Badge>
+                  </div>
 
-                              <div className="flex items-center gap-3">
-                                <Badge
-                                  className={cn(
-                                    "rounded-full",
-                                    member.role === "admin"
-                                      ? "bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300"
-                                      : member.role === "manager"
-                                      ? "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
-                                      : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
-                                  )}
-                                >
-                                  {member.role === "admin" && <Shield className="mr-1 h-3 w-3" />}
-                                  {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
-                                </Badge>
-                                
-                                {/* Toggle Manager Role */}
-                                {!isMemberAdmin && isCurrentUserAdmin && (
-                                  <div className="flex items-center gap-2 rounded-lg bg-white p-2 dark:bg-slate-900">
-                                    <span className="text-xs text-slate-600 dark:text-slate-400">Manager</span>
-                                    <Switch
-                                      checked={member.role === "manager"}
-                                      onCheckedChange={() => handleToggleManagerRole(member)}
-                                    />
-                                  </div>
-                                )}
+                  {selectedProject?.members && selectedProject.members.length > 0 ? (
+                    <div className="space-y-2">
+                      {selectedProject.members.map((member) => {
+                        const userProfile = availableUsers.find(u => u.id === member.userId);
+                        const isCurrentUserAdmin = isAdmin(selectedProject);
+                        const isMemberAdmin = member.role === "admin";
 
-                                {/* Remove Button */}
-                                {!isMemberAdmin && isCurrentUserAdmin && (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30"
-                                    onClick={() => handleRemoveMember(member)}
-                                  >
-                                    <UserMinus className="h-4 w-4" />
-                                  </Button>
-                                )}
+                        return (
+                          <div
+                            key={member.userId}
+                            className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50/50 p-4 transition-all hover:bg-slate-100/50 dark:border-slate-800 dark:bg-slate-800/30 dark:hover:bg-slate-800/50"
+                          >
+                            <div className="flex items-center gap-3">
+                              <Avatar className="h-12 w-12 border-2 border-white shadow-md dark:border-slate-700">
+                                <AvatarImage
+                                  src={userProfile?.profilePicture || "/placeholder.svg"}
+                                  alt={userProfile?.username || "User"}
+                                />
+                                <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white font-semibold">
+                                  {userProfile?.username?.substring(0, 2).toUpperCase() || "??"}
+                                </AvatarFallback>
+                              </Avatar>
+                              <div>
+                                <p className="font-semibold text-slate-900 dark:text-slate-50">
+                                  {userProfile?.username || "Unknown User"}
+                                </p>
+                                <p className="text-xs text-slate-600 dark:text-slate-400">
+                                  {userProfile?.address.substring(0, 10)}...{userProfile?.address.substring(38)}
+                                </p>
                               </div>
                             </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center dark:border-slate-700 dark:bg-slate-900/30">
-                        <Users className="mx-auto h-10 w-10 text-slate-400" />
-                        <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
-                          No members yet. Invite people to collaborate.
+
+                            <div className="flex items-center gap-3">
+                              <Badge
+                                className={cn(
+                                  "rounded-full",
+                                  member.role === "admin"
+                                    ? "bg-purple-100 text-purple-700 dark:bg-purple-950/50 dark:text-purple-300"
+                                    : member.role === "manager"
+                                      ? "bg-blue-100 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300"
+                                      : "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300"
+                                )}
+                              >
+                                {member.role === "admin" && <Shield className="mr-1 h-3 w-3" />}
+                                {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                              </Badge>
+
+                              {/* Toggle Manager Role */}
+                              {!isMemberAdmin && isCurrentUserAdmin && (
+                                <div className="flex items-center gap-2 rounded-lg bg-white p-2 dark:bg-slate-900">
+                                  <span className="text-xs text-slate-600 dark:text-slate-400">Manager</span>
+                                  <Switch
+                                    checked={member.role === "manager"}
+                                    onCheckedChange={() => handleToggleManagerRole(member)}
+                                  />
+                                </div>
+                              )}
+
+                              {/* Remove Button */}
+                              {!isMemberAdmin && isCurrentUserAdmin && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 rounded-lg text-red-500 hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-950/30"
+                                  onClick={() => handleRemoveMember(member)}
+                                >
+                                  <UserMinus className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center dark:border-slate-700 dark:bg-slate-900/30">
+                      <Users className="mx-auto h-10 w-10 text-slate-400" />
+                      <p className="mt-2 text-sm text-slate-600 dark:text-slate-400">
+                        No members yet. Invite people to collaborate.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Role Permissions Info */}
+                <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-5 dark:border-slate-800 dark:bg-slate-800/30">
+                  <h4 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-50">
+                    <Shield className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                    Role Permissions
+                  </h4>
+                  <div className="space-y-2.5 text-sm">
+                    <div className="flex items-start gap-3 rounded-lg bg-purple-50 p-3 dark:bg-purple-950/20">
+                      <Shield className="h-4 w-4 mt-0.5 text-purple-600 dark:text-purple-400" />
+                      <div>
+                        <p className="font-medium text-slate-900 dark:text-slate-50">Admin</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                          Full access: Create, assign, move tasks, approve, handle payments
                         </p>
                       </div>
-                    )}
-                  </div>
-
-                  {/* Role Permissions Info */}
-                  <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50/50 p-5 dark:border-slate-800 dark:bg-slate-800/30">
-                    <h4 className="flex items-center gap-2 font-semibold text-slate-900 dark:text-slate-50">
-                      <Shield className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                      Role Permissions
-                    </h4>
-                    <div className="space-y-2.5 text-sm">
-                      <div className="flex items-start gap-3 rounded-lg bg-purple-50 p-3 dark:bg-purple-950/20">
-                        <Shield className="h-4 w-4 mt-0.5 text-purple-600 dark:text-purple-400" />
-                        <div>
-                          <p className="font-medium text-slate-900 dark:text-slate-50">Admin</p>
-                          <p className="text-xs text-slate-600 dark:text-slate-400">
-                            Full access: Create, assign, move tasks, approve, handle payments
-                          </p>
-                        </div>
+                    </div>
+                    <div className="flex items-start gap-3 rounded-lg bg-blue-50 p-3 dark:bg-blue-950/20">
+                      <Users className="h-4 w-4 mt-0.5 text-blue-600 dark:text-blue-400" />
+                      <div>
+                        <p className="font-medium text-slate-900 dark:text-slate-50">Manager</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                          Create, assign, move, approve tasks (no payment access)
+                        </p>
                       </div>
-                      <div className="flex items-start gap-3 rounded-lg bg-blue-50 p-3 dark:bg-blue-950/20">
-                        <Users className="h-4 w-4 mt-0.5 text-blue-600 dark:text-blue-400" />
-                        <div>
-                          <p className="font-medium text-slate-900 dark:text-slate-50">Manager</p>
-                          <p className="text-xs text-slate-600 dark:text-slate-400">
-                            Create, assign, move, approve tasks (no payment access)
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-start gap-3 rounded-lg bg-slate-100 p-3 dark:bg-slate-800">
-                        <UserPlus className="h-4 w-4 mt-0.5 text-slate-600 dark:text-slate-400" />
-                        <div>
-                          <p className="font-medium text-slate-900 dark:text-slate-50">Contributor</p>
-                          <p className="text-xs text-slate-600 dark:text-slate-400">
-                            View tasks and submit work when assigned
-                          </p>
-                        </div>
+                    </div>
+                    <div className="flex items-start gap-3 rounded-lg bg-slate-100 p-3 dark:bg-slate-800">
+                      <UserPlus className="h-4 w-4 mt-0.5 text-slate-600 dark:text-slate-400" />
+                      <div>
+                        <p className="font-medium text-slate-900 dark:text-slate-50">Contributor</p>
+                        <p className="text-xs text-slate-600 dark:text-slate-400">
+                          View tasks and submit work when assigned
+                        </p>
                       </div>
                     </div>
                   </div>
                 </div>
-              </DialogContent>
-            </Dialog>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Edit Project Dialog */}
           <Dialog open={isEditProjectDialogOpen} onOpenChange={setIsEditProjectDialogOpen}>
-              <DialogContent className="rounded-2xl sm:max-w-[500px]">
-                <DialogHeader className="border-b border-slate-200 pb-4 dark:border-slate-800">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 shadow-lg">
-                      <Edit className="h-6 w-6 text-white" />
-                    </div>
-                    <div>
-                      <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-50">
-                        Edit Project
-                      </DialogTitle>
-                      <p className="text-sm text-slate-600 dark:text-slate-400">
-                        Update project information
-                      </p>
-                    </div>
+            <DialogContent className="rounded-2xl sm:max-w-[500px]">
+              <DialogHeader className="border-b border-slate-200 pb-4 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 shadow-lg">
+                    <Edit className="h-6 w-6 text-white" />
                   </div>
-                </DialogHeader>
-                <div className="space-y-5 py-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-name" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Project Name
-                    </Label>
-                    <Input
-                      id="edit-name"
-                      value={selectedProject?.title || ""}
-                      onChange={(e) =>
-                        setSelectedProject(selectedProject ? { ...selectedProject, title: e.target.value } : null)
-                      }
-                      placeholder="Enter project name"
-                      className="h-11 rounded-xl border-slate-300 dark:border-slate-700"
-                    />
+                  <div>
+                    <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-50">
+                      Edit Project
+                    </DialogTitle>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      Update project information
+                    </p>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-description" className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Description
-                    </Label>
-                    <Textarea
-                      id="edit-description"
-                      value={selectedProject?.description || ""}
-                      onChange={(e) =>
-                        setSelectedProject(selectedProject ? {
-                          ...selectedProject,
-                          description: e.target.value,
-                        } : null)
-                      }
-                      placeholder="Describe your project"
-                      className="min-h-[100px] rounded-xl border-slate-300 dark:border-slate-700"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
-                      Project Logo
-                    </Label>
-                    <div className="flex items-center gap-4">
-                      <Avatar className="h-16 w-16 border-2 border-slate-200 shadow-lg dark:border-slate-700">
-                        <AvatarImage
-                          src={editProjectLogoFile ? URL.createObjectURL(editProjectLogoFile) : (selectedProject?.logoUrl || "/placeholder.svg")}
-                        />
-                        <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white text-lg font-semibold">
-                          {selectedProject?.title?.substring(0, 2).toUpperCase() || "PR"}
-                        </AvatarFallback>
-                      </Avatar>
-                      <Input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0] || null;
-                          setEditProjectLogoFile(f);
-                        }}
-                        className="rounded-xl border-slate-300 dark:border-slate-700"
+                </div>
+              </DialogHeader>
+              <div className="space-y-5 py-6">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Project Name
+                  </Label>
+                  <Input
+                    id="edit-name"
+                    value={selectedProject?.title || ""}
+                    onChange={(e) =>
+                      setSelectedProject(selectedProject ? { ...selectedProject, title: e.target.value } : null)
+                    }
+                    placeholder="Enter project name"
+                    className="h-11 rounded-xl border-slate-300 dark:border-slate-700"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-description" className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Description
+                  </Label>
+                  <Textarea
+                    id="edit-description"
+                    value={selectedProject?.description || ""}
+                    onChange={(e) =>
+                      setSelectedProject(selectedProject ? {
+                        ...selectedProject,
+                        description: e.target.value,
+                      } : null)
+                    }
+                    placeholder="Describe your project"
+                    className="min-h-[100px] rounded-xl border-slate-300 dark:border-slate-700"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Project Logo
+                  </Label>
+                  <div className="flex items-center gap-4">
+                    <Avatar className="h-16 w-16 border-2 border-slate-200 shadow-lg dark:border-slate-700">
+                      <AvatarImage
+                        src={editProjectLogoFile ? URL.createObjectURL(editProjectLogoFile) : (selectedProject?.logoUrl || "/placeholder.svg")}
                       />
-                    </div>
+                      <AvatarFallback className="bg-gradient-to-br from-indigo-500 to-purple-500 text-white text-lg font-semibold">
+                        {selectedProject?.title?.substring(0, 2).toUpperCase() || "PR"}
+                      </AvatarFallback>
+                    </Avatar>
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const f = e.target.files?.[0] || null;
+                        setEditProjectLogoFile(f);
+                      }}
+                      className="rounded-xl border-slate-300 dark:border-slate-700"
+                    />
                   </div>
                 </div>
-                <div className="flex gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
-                  <Button
-                    variant="outline"
-                    onClick={() => setIsEditProjectDialogOpen(false)}
-                    className="flex-1 rounded-xl"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleUpdateProject}
-                    disabled={isUploadingLogo}
-                    className="flex-1 gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 font-semibold text-white shadow-lg"
-                  >
-                    {isUploadingLogo ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <Check className="h-4 w-4" />
-                        Save Changes
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
+              </div>
+              <div className="flex gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsEditProjectDialogOpen(false)}
+                  className="flex-1 rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleUpdateProject}
+                  disabled={isUploadingLogo}
+                  className="flex-1 gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-500 font-semibold text-white shadow-lg"
+                >
+                  {isUploadingLogo ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Save Changes
+                    </>
+                  )}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
     </ProtectedRoute>

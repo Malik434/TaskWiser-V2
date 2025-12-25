@@ -9,12 +9,14 @@ import { User, Loader2, XCircle } from "lucide-react";
 import type { UserProfile } from "@/lib/types";
 
 interface UserSearchSelectProps {
-  label: string;
+  label?: string;
   placeholder: string;
+  value?: string; // Alias for selectedUserId to support value prop usage
   selectedUserId?: string;
-  availableUsers: UserProfile[];
-  isLoadingUsers: boolean;
-  onSelectUser: (userId: string | undefined) => void;
+  users: UserProfile[]; // Renamed from availableUsers
+  isLoadingUsers?: boolean; // Made optional
+  onChange?: (userId: string | undefined) => void; // Alias for onSelectUser
+  onSelectUser?: (userId: string | undefined) => void;
   emptyLabel?: string;
   className?: string;
   disabled?: boolean;
@@ -23,26 +25,36 @@ interface UserSearchSelectProps {
 export function UserSearchSelect({
   label,
   placeholder,
+  value,
   selectedUserId,
-  availableUsers,
-  isLoadingUsers,
+  users,
+  isLoadingUsers = false,
+  onChange,
   onSelectUser,
   emptyLabel = "Unassigned",
   className = "",
   disabled = false,
 }: UserSearchSelectProps) {
+  const finalSelectedId = value || selectedUserId;
+  const handleSelect = onChange || onSelectUser;
+
+  if (!handleSelect) {
+    console.warn("UserSearchSelect: No onChange or onSelectUser handler provided");
+  }
+
   const [searchQuery, setSearchQuery] = useState("");
 
-  const getFilteredUsers = (users: UserProfile[], query: string) => {
-    if (!query) return users;
-    return users.filter(
+  const getFilteredUsers = (usersList: UserProfile[], query: string) => {
+    if (!usersList) return [];
+    if (!query) return usersList;
+    return usersList.filter(
       (user) =>
         user.username.toLowerCase().includes(query.toLowerCase()) ||
         user.address.toLowerCase().includes(query.toLowerCase())
     );
   };
 
-  const selectedUser = availableUsers.find((user) => user.id === selectedUserId);
+  const selectedUser = users?.find((user) => user.id === finalSelectedId);
 
   return (
     <div className={`space-y-2 ${className}`}>
@@ -58,15 +70,14 @@ export function UserSearchSelect({
           disabled={disabled}
         />
         <div
-          className={`absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-md ${
-            searchQuery ? "block" : "hidden"
-          }`}
+          className={`absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-md ${searchQuery ? "block" : "hidden"
+            }`}
         >
           <div className="max-h-60 overflow-auto p-1">
             <div
               className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent"
               onClick={() => {
-                onSelectUser(undefined);
+                handleSelect && handleSelect(undefined);
                 setSearchQuery("");
               }}
             >
@@ -78,12 +89,12 @@ export function UserSearchSelect({
                 <Loader2 className="h-4 w-4 animate-spin" />
               </div>
             ) : (
-              getFilteredUsers(availableUsers, searchQuery).map((user) => (
+              getFilteredUsers(users, searchQuery).map((user) => (
                 <div
                   key={user.id}
                   className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent"
                   onClick={() => {
-                    onSelectUser(user.id);
+                    handleSelect && handleSelect(user.id);
                     setSearchQuery("");
                   }}
                 >
@@ -106,7 +117,7 @@ export function UserSearchSelect({
               ))
             )}
             {searchQuery &&
-              getFilteredUsers(availableUsers, searchQuery).length === 0 && (
+              getFilteredUsers(users, searchQuery).length === 0 && (
                 <div className="px-2 py-1.5 text-sm text-muted-foreground">
                   No users found
                 </div>
@@ -130,7 +141,7 @@ export function UserSearchSelect({
             variant="ghost"
             size="sm"
             className="h-6 w-6 p-0 rounded-full ml-auto"
-            onClick={() => onSelectUser(undefined)}
+            onClick={() => handleSelect && handleSelect(undefined)}
             disabled={disabled}
           >
             <XCircle className="h-4 w-4" />

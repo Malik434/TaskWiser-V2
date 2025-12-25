@@ -20,7 +20,8 @@ contract TaskWiserEscrow is ReentrancyGuard, Ownable {
         None,      // Escrow doesn't exist
         Locked,    // Tokens are locked
         Released,  // Tokens released to assignee
-        Refunded   // Tokens refunded to admin (dispute)
+        Refunded,  // Tokens refunded to admin (dispute)
+        Disputed   // Escrow is under dispute
     }
 
     // Escrow structure
@@ -58,6 +59,17 @@ contract TaskWiserEscrow is ReentrancyGuard, Ownable {
         address indexed admin,
         uint256 amount,
         string reason
+    );
+
+    event EscrowDisputed(
+        bytes32 indexed taskId,
+        address indexed raisedBy
+    );
+
+    event EscrowResolved(
+        bytes32 indexed taskId,
+        address indexed winner,
+        uint256 amount
     );
 
     /**
@@ -160,6 +172,51 @@ contract TaskWiserEscrow is ReentrancyGuard, Ownable {
         tokenContract.safeTransfer(admin, amount);
 
         emit EscrowRefunded(taskId, admin, amount, reason);
+    }
+
+    /**
+     * @dev Raise a dispute (called by admin or assignee)
+     * @param taskId Unique task identifier
+     */
+    function raiseDispute(bytes32 taskId) external nonReentrant {
+        Escrow storage escrow = escrows[taskId];
+        
+        require(escrow.status == EscrowStatus.Locked, "TaskWiserEscrow: Escrow not locked");
+        require(msg.sender == escrow.admin || msg.sender == escrow.assignee, "TaskWiserEscrow: Only participants can dispute");
+
+        escrow.status = EscrowStatus.Disputed;
+        
+        emit EscrowDisputed(taskId, msg.sender);
+    }
+
+    /**
+     * @dev Resolve a dispute (called by platform owner)
+     * @param taskId Unique task identifier
+     * @param winner Address to receive the funds
+     */
+    function resolveDispute(bytes32 taskId, address winner) external onlyOwner nonReentrant {
+        Escrow storage escrow = escrows[taskId];
+        
+        require(escrow.status == EscrowStatus.Disputed, "TaskWiserEscrow: Task not disputed");
+        require(winner == escrow.admin || winner == escrow.assignee, "TaskWiserEscrow: Winner must be a participant");
+
+        IERC20 tokenContract = IERC20(escrow.token);
+        uint256 amount = escrow.amount;
+
+        if (winner == escrow.assignee) {
+             escrow.status = EscrowStatus.Released;
+             emit EscrowReleased(taskId, winner, amount);
+        } else {
+             escrow.status = EscrowStatus.Refunded;
+             emit EscrowRefunded(taskId, winner, amount, "Dispute resolved by admin");
+        }
+        
+        escrow.releasedAt = block.timestamp;
+        
+        // Transfer tokens
+        tokenContract.safeTransfer(winner, amount);
+        
+        emit EscrowResolved(taskId, winner, amount);
     }
 
     /**

@@ -2,9 +2,12 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction } from "@/components/ui/alert-dialog";
 import { CheckSquare, Square, User } from "lucide-react";
+import { useState } from "react";
 import type { Task } from "@/lib/types";
 import type { DraggableProvided, DraggableStateSnapshot } from "@hello-pangea/dnd";
+import { DisputeModal } from "./dispute-modal";
 
 interface TaskCardProps {
   task: Task;
@@ -57,6 +60,8 @@ export function TaskCard({
     }
   };
 
+  const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
+  const isDisputed = task.escrowStatus === "disputed";
   const canBeSelected = task.reward && task.rewardAmount && !task.paid;
 
   return (
@@ -66,11 +71,10 @@ export function TaskCard({
       {...provided?.dragHandleProps}
       className={`task-card ${getTaskCardClass(
         task.priority
-      )} bg-white dark:bg-[#2a2a2a] p-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-[#333] shadow-sm border transition-all relative sm:p-3 ${
-        isSelected
-          ? "border-purple-500 ring-2 ring-purple-200 dark:ring-purple-800 bg-purple-50 dark:bg-purple-900/20"
-          : "border-gray-100 dark:border-gray-700"
-      } ${isDragging && isSelected ? "shadow-lg opacity-90" : ""}`}
+      )} bg-white dark:bg-[#2a2a2a] p-2 rounded-lg cursor-pointer hover:bg-gray-50 dark:hover:bg-[#333] shadow-sm border transition-colors duration-200 relative sm:p-3 ${isSelected
+        ? "border-purple-500 ring-2 ring-purple-200 dark:ring-purple-800 bg-purple-50 dark:bg-purple-900/20"
+        : "border-gray-100 dark:border-gray-700"
+        } ${isDragging && isSelected ? "shadow-lg opacity-90" : ""}`}
       onClick={onClick}
     >
       <div className="flex items-start gap-1.5 sm:gap-2">
@@ -102,13 +106,17 @@ export function TaskCard({
             <div className={`rounded-full px-1.5 py-0.5 text-[10px] sm:px-2 sm:py-1 sm:text-xs ${getPriorityBadgeClass(task.priority)}`}>
               {task.priority.charAt(0).toUpperCase() + task.priority.slice(1)}
             </div>
+            {task.tags && task.tags.length > 0 && task.tags.map((tag) => (
+              <Badge key={tag} variant="secondary" className="text-[10px] sm:text-xs px-1.5 py-0.5 h-auto font-normal bg-secondary/50 text-secondary-foreground">
+                {tag}
+              </Badge>
+            ))}
             {task.reward && task.rewardAmount && (
               <div
-                className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold border sm:px-2 sm:py-1 sm:text-xs ${
-                  task.paid
-                    ? "bg-green-100 dark:bg-green-600/20 text-green-600 dark:text-green-400 border-green-200 dark:border-green-500/50"
-                    : "bg-amber-100 dark:bg-amber-600/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/50"
-                }`}
+                className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold border sm:px-2 sm:py-1 sm:text-xs ${task.paid
+                  ? "bg-green-100 dark:bg-green-600/20 text-green-600 dark:text-green-400 border-green-200 dark:border-green-500/50"
+                  : "bg-amber-100 dark:bg-amber-600/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/50"
+                  }`}
               >
                 {task.rewardAmount} {task.reward}
               </div>
@@ -189,6 +197,16 @@ export function TaskCard({
                   Assignee
                 </Badge>
               )}
+              {/* Dispute Option */}
+              {task.escrowStatus === 'locked' && !isDisputed && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] bg-orange-100 dark:bg-orange-600/10 text-orange-600 dark:text-orange-400 border-orange-200 dark:border-orange-600/20 sm:text-xs cursor-pointer hover:bg-orange-200 dark:hover:bg-orange-600/20"
+                  onClick={(e) => { e.stopPropagation(); setIsDisputeModalOpen(true); }}
+                >
+                  Raise Dispute
+                </Badge>
+              )}
             </div>
           </div>
         </div>
@@ -200,7 +218,13 @@ export function TaskCard({
           </div>
         )}
       </div>
+
+      <DisputeModal
+        isOpen={isDisputeModalOpen}
+        onClose={() => setIsDisputeModalOpen(false)}
+        taskId={task.id}
+        taskTitle={task.title}
+      />
     </div>
   );
 }
-

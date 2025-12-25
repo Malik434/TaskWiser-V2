@@ -22,6 +22,7 @@ export default function ProjectBoardPage() {
 
   const [isClient, setIsClient] = useState(false);
   const [project, setProject] = useState<Project | null>(null);
+  const [userRole, setUserRole] = useState<"admin" | "manager" | "contributor" | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isCheckingAccess, setIsCheckingAccess] = useState(true);
@@ -83,6 +84,12 @@ export default function ProjectBoardPage() {
 
       if (isCreator || isMember) {
         setHasAccess(true);
+        if (isCreator) {
+          setUserRole("admin");
+        } else {
+          const member = members.find((m: any) => m.userId === userProfile.id);
+          setUserRole(member?.role || "contributor");
+        }
       } else {
         setError("Access Denied");
       }
@@ -231,57 +238,57 @@ export default function ProjectBoardPage() {
     return (
       <ProtectedRoute>
         <div className="flex h-screen bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 transition-colors">
-        <div className="flex-1 overflow-auto">
-          <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80">
-            <div className="flex h-16 items-center justify-between px-4 sm:px-6">
-              <div className="flex items-center gap-3 md:ml-0 ml-12">
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 shadow-lg">
-                  <AlertCircle className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
-                    Project Error
-                  </h1>
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
-                    Unable to load project
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 sm:gap-4">
-                <ThemeToggle />
-                <div className="hidden sm:block">
-                  <WalletConnect />
-                </div>
-              </div>
-            </div>
-          </header>
-          <main className="animate-in fade-in duration-500 p-4 sm:p-6">
-            <div className="mx-auto max-w-2xl">
-              <div className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-lg dark:border-red-900 dark:bg-red-950/30">
-                <div className="flex items-start gap-3">
-                  <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+          <div className="flex-1 overflow-auto">
+            <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80">
+              <div className="flex h-16 items-center justify-between px-4 sm:px-6">
+                <div className="flex items-center gap-3 md:ml-0 ml-12">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 shadow-lg">
+                    <AlertCircle className="h-5 w-5 text-white" />
+                  </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-red-900 dark:text-red-100 mb-1">
-                      Error Loading Project
-                    </h3>
-                    <p className="text-sm text-red-700 dark:text-red-300">
-                      {error || "Failed to load project"}
+                    <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
+                      Project Error
+                    </h1>
+                    <p className="text-xs text-slate-600 dark:text-slate-400">
+                      Unable to load project
                     </p>
                   </div>
                 </div>
+                <div className="flex items-center gap-2 sm:gap-4">
+                  <ThemeToggle />
+                  <div className="hidden sm:block">
+                    <WalletConnect />
+                  </div>
+                </div>
               </div>
-              <Button
-                onClick={() => router.push("/projects")}
-                variant="outline"
-                className="mt-6 gap-2 rounded-xl"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back to Projects
-              </Button>
-            </div>
-          </main>
+            </header>
+            <main className="animate-in fade-in duration-500 p-4 sm:p-6">
+              <div className="mx-auto max-w-2xl">
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-6 shadow-lg dark:border-red-900 dark:bg-red-950/30">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <h3 className="text-lg font-semibold text-red-900 dark:text-red-100 mb-1">
+                        Error Loading Project
+                      </h3>
+                      <p className="text-sm text-red-700 dark:text-red-300">
+                        {error || "Failed to load project"}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <Button
+                  onClick={() => router.push("/projects")}
+                  variant="outline"
+                  className="mt-6 gap-2 rounded-xl"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Back to Projects
+                </Button>
+              </div>
+            </main>
+          </div>
         </div>
-      </div>
       </ProtectedRoute>
     );
   }
@@ -329,7 +336,7 @@ export default function ProjectBoardPage() {
           </header>
 
           <main className="animate-in fade-in duration-500 p-4 sm:p-6">
-            <KanbanBoard projectId={projectId} />
+            <KanbanBoard projectId={projectId} project={project} userRole={userRole} />
           </main>
         </div>
       </div>

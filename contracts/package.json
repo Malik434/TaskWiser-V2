@@ -1,0 +1,21 @@
+{
+  "name": "taskwiser-escrow-contracts",
+  "version": "1.0.0",
+  "description": "Smart contracts for TaskWiser escrow functionality",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia",
+    "verify": "hardhat verify --network sepolia",
+    "test": "hardhat test"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/contracts": "^5.0.0",
+    "hardhat": "^2.19.0",
+    "dotenv": "^16.3.1"
+  },
+  "dependencies": {
+    "ethers": "^6.8.0"
+  }
+}
+

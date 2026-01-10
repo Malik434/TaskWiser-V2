@@ -128,3 +128,11 @@ def update(task: UpdateInput):
     except Exception as e:
         print(f"Error updating model: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "api:app",
+        host="0.0.0.0",
+        port=int(os.environ.get("PORT", 8000))
+    )

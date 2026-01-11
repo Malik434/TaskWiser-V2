@@ -23,7 +23,7 @@ const ADMIN_ADDRESS = "0xc5c7dbe83cc7fc43c6bf6138e98f4bde6442ba76";
 
 export default function AdminPage() {
   const { account, isConnected, signer, provider } = useWeb3();
-  const { getDisputes, updateDispute, getAllTasks } = useFirebase();
+  const { getDisputes, updateDispute, getAllTasks, updateTask } = useFirebase();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -142,15 +142,26 @@ export default function AdminPage() {
       // Sync with on-chain state - verify escrow status
       const updatedEscrowDetails = await getEscrowDetails(provider, dispute.taskId);
       
+      const resolution = {
+        decision: "refund" as const,
+        resolvedBy: account?.toLowerCase() || "",
+        resolvedAt: new Date().toISOString(),
+        reason: "Refunded to task creator",
+      };
+      
       // Update dispute status
       await updateDispute(dispute.id, {
         status: "refunded",
-        resolution: {
-          decision: "refund",
-          resolvedBy: account?.toLowerCase() || "",
-          resolvedAt: new Date().toISOString(),
-          reason: "Refunded to task creator",
-        },
+        resolution,
+      });
+
+      // Update task: mark as no longer disputed, add resolution, move to done, update escrow status
+      await updateTask(dispute.taskId, {
+        isDisputed: false,
+        disputeResolution: resolution,
+        status: "done",
+        escrowStatus: "refunded",
+        updatedAt: new Date().toISOString(),
       });
 
       toast({
@@ -222,15 +233,26 @@ export default function AdminPage() {
       // Sync with on-chain state - verify escrow status
       const updatedEscrowDetails = await getEscrowDetails(provider, dispute.taskId);
       
+      const resolution = {
+        decision: "approve" as const,
+        resolvedBy: account?.toLowerCase() || "",
+        resolvedAt: new Date().toISOString(),
+        reason: "Approved: Funds released to contributor by admin",
+      };
+      
       // Update dispute status
       await updateDispute(dispute.id, {
         status: "approved",
-        resolution: {
-          decision: "approve",
-          resolvedBy: account?.toLowerCase() || "",
-          resolvedAt: new Date().toISOString(),
-          reason: "Approved: Funds released to contributor by admin",
-        },
+        resolution,
+      });
+
+      // Update task: mark as no longer disputed, add resolution, move to done, update escrow status
+      await updateTask(dispute.taskId, {
+        isDisputed: false,
+        disputeResolution: resolution,
+        status: "done",
+        escrowStatus: "released",
+        updatedAt: new Date().toISOString(),
       });
 
       toast({

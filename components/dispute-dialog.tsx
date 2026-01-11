@@ -34,7 +34,7 @@ export function DisputeDialog({
   onSuccess,
 }: DisputeDialogProps) {
   const { account, provider } = useWeb3();
-  const { createDispute, getUserProfileById, getUserProfile } = useFirebase();
+  const { createDispute, getUserProfileById, getUserProfile, updateTask } = useFirebase();
   const { toast } = useToast();
   const [evidence, setEvidence] = useState("");
   const [attachments, setAttachments] = useState<string[]>([]);
@@ -133,6 +133,12 @@ export function DisputeDialog({
                 submittedAt: new Date().toISOString(),
               },
             }),
+      });
+
+      // Mark task as disputed
+      await updateTask(task.id, {
+        isDisputed: true,
+        updatedAt: new Date().toISOString(),
       });
 
       toast({

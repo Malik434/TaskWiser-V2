@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
 
     // Try calling the local Python ML API
     try {
-      const mlResponse = await fetch("http://127.0.0.1:8000/predict", {
+      const mlResponse = await fetch("http://127.0.0.1:3000/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -60,6 +60,13 @@ export interface Task {
   proposals?: TaskProposal[]
   escrowEnabled?: boolean
   escrowStatus?: "pending" | "locked" | "released" | "refunded"
+  isDisputed?: boolean
+  disputeResolution?: {
+    decision: "refund" | "approve"
+    resolvedBy: string
+    resolvedAt: string
+    reason?: string
+  }
   createdAt: string
   updatedAt?: string
 }

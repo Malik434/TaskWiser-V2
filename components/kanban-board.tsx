@@ -2415,6 +2415,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   const canRaiseDispute = (task: Task): boolean => {
     if (!account || !task) return false;
     
+    // Cannot raise dispute if task is already disputed
+    if (task.isDisputed) return false;
+    
     // Only for escrow-enabled tasks with locked escrow
     if (!task.escrowEnabled || task.escrowStatus !== "locked") {
       return false;
@@ -2441,6 +2444,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   // Helper function to check if user can refund
   const canRefund = (task: Task): boolean => {
     if (!account || !task) return false;
+    
+    // Cannot refund if task is disputed
+    if (task.isDisputed) return false;
     
     // Only task assignee can refund
     const userIdentifier = currentUserId || account;
@@ -4258,6 +4264,15 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                             : "Escrow Enabled"}
                         </Badge>
                       )}
+                      {selectedTask.isDisputed && (
+                        <Badge
+                          variant="outline"
+                          className="rounded-full text-xs font-medium bg-red-100 dark:bg-red-950/30 text-red-700 dark:text-red-300 border-red-300 dark:border-red-800"
+                        >
+                          <AlertCircle className="h-3 w-3 mr-0.5" />
+                          Disputed
+                        </Badge>
+                      )}
                     </div>
                   </>
                 )}
@@ -4606,6 +4621,69 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                     </div>
                   )}
 
+                  {/* Dispute Status */}
+                  {selectedTask.isDisputed && (
+                    <div className="rounded-xl border border-red-300 dark:border-red-800 bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-950/20 dark:to-orange-950/20 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-200 dark:bg-red-900/50">
+                          <AlertCircle className="h-4 w-4 text-red-700 dark:text-red-400" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-semibold text-red-900 dark:text-red-200 mb-1">
+                            Task Disputed
+                          </p>
+                          <p className="text-xs text-red-700 dark:text-red-300">
+                            This task has been disputed and is awaiting admin review.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Dispute Resolution */}
+                  {selectedTask.disputeResolution && !selectedTask.isDisputed && (
+                    <div className={`rounded-xl border p-4 ${
+                      selectedTask.disputeResolution.decision === "approve"
+                        ? "border-green-300 dark:border-green-800 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/20 dark:to-emerald-950/20"
+                        : "border-orange-300 dark:border-orange-800 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-950/20 dark:to-amber-950/20"
+                    }`}>
+                      <div className="flex items-start gap-3">
+                        <div className={`flex h-8 w-8 items-center justify-center rounded-full ${
+                          selectedTask.disputeResolution.decision === "approve"
+                            ? "bg-green-200 dark:bg-green-900/50"
+                            : "bg-orange-200 dark:bg-orange-900/50"
+                        }`}>
+                          {selectedTask.disputeResolution.decision === "approve" ? (
+                            <CheckCircle className="h-4 w-4 text-green-700 dark:text-green-400" />
+                          ) : (
+                            <RotateCcw className="h-4 w-4 text-orange-700 dark:text-orange-400" />
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <p className={`text-sm font-semibold mb-1 ${
+                            selectedTask.disputeResolution.decision === "approve"
+                              ? "text-green-900 dark:text-green-200"
+                              : "text-orange-900 dark:text-orange-200"
+                          }`}>
+                            Dispute Resolved - {selectedTask.disputeResolution.decision === "approve" ? "Approved" : "Refunded"}
+                          </p>
+                          {selectedTask.disputeResolution.reason && (
+                            <p className={`text-xs mt-1 ${
+                              selectedTask.disputeResolution.decision === "approve"
+                                ? "text-green-700 dark:text-green-300"
+                                : "text-orange-700 dark:text-orange-300"
+                            }`}>
+                              {selectedTask.disputeResolution.reason}
+                            </p>
+                          )}
+                          <p className="text-xs text-slate-500 dark:text-slate-400 mt-2">
+                            Resolved: {format(new Date(selectedTask.disputeResolution.resolvedAt), "PPp")}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {selectedTask.submission && (
                     <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 p-4 overflow-hidden">
                       <h3 className="text-xs font-medium uppercase tracking-wider text-slate-500 dark:text-slate-500 mb-3">Work Submission</h3>
@@ -4853,8 +4931,15 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                             </>
                           )}
 
-                          {/* Raise Dispute Button */}
-                          {canRaiseDispute(selectedTask) && (
+                          {/* Disputed Status or Raise Dispute Button */}
+                          {selectedTask.isDisputed ? (
+                            <div className="rounded-xl border border-red-300 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-4 py-2 flex items-center gap-2">
+                              <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                              <span className="text-sm font-medium text-red-700 dark:text-red-300">
+                                Disputed - Awaiting Admin Review
+                              </span>
+                            </div>
+                          ) : canRaiseDispute(selectedTask) ? (
                             <Button
                               variant="outline"
                               onClick={() => setIsDisputeDialogOpen(true)}
@@ -4863,7 +4948,7 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                               <AlertCircle className="h-4 w-4 mr-2" />
                               Raise Dispute
                             </Button>
-                          )}
+                          ) : null}
 
                           {/* Refund Button */}
                           {canRefund(selectedTask) && (

@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { estimateTaskCostUSD, type CostEstimate as HeuristicEstimate } from "@/lib/cost-estimator";
+import { estimateTaskCostUSD, type CostEstimate } from "@/lib/cost-estimator";
 import type { UserProfile } from "@/lib/types";
 
 type Props = {
@@ -15,12 +15,6 @@ type Props = {
   availableUsers: UserProfile[];
   onApplyReward?: (amount: number) => void;
   onEstimateChange?: (estimate: CostEstimate | null, isAI: boolean) => void;
-};
-
-type CostEstimate = {
-  totalUSD: number;
-  estimatedHours: number;
-  baseRateUSD: number;
 };
 
 function extractKeywords(text: string) {
@@ -64,7 +58,7 @@ export function TaskPredictorSidebar({ newTask, availableUsers, onApplyReward, o
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<string | null>(null);
   const [estimate, setEstimate] = useState<CostEstimate | null>(null);
-  const [heuristic, setHeuristic] = useState<HeuristicEstimate | null>(null);
+  const [heuristic, setHeuristic] = useState<CostEstimate | null>(null);
   const [useAI, setUseAI] = useState(true);
 
   const keywords = useMemo(
@@ -103,7 +97,18 @@ export function TaskPredictorSidebar({ newTask, availableUsers, onApplyReward, o
         setSource(data?.source || (data?.ai_error ? "heuristic" : "ai"));
         const e = data?.estimate;
         if (e && typeof e.totalUSD === "number" && typeof e.estimatedHours === "number") {
-          const newEst = { totalUSD: e.totalUSD, estimatedHours: e.estimatedHours, baseRateUSD: e.baseRateUSD || 50 };
+          const newEst: CostEstimate = { 
+            totalUSD: e.totalUSD, 
+            estimatedHours: e.estimatedHours, 
+            baseRateUSD: e.baseRateUSD || 50,
+            breakdown: e.breakdown || {
+              lengthHours: e.estimatedHours,
+              titleHoursAdj: 0,
+              descriptionHoursAdj: 0,
+              tagMultiplier: 1,
+              priorityMultiplier: 1,
+            }
+          };
           setEstimate(newEst);
           if (onEstimateChange) onEstimateChange(newEst, true);
         }
@@ -116,7 +121,12 @@ export function TaskPredictorSidebar({ newTask, availableUsers, onApplyReward, o
         });
         setHeuristic(h);
         setSource("heuristic");
-        const newEst = { totalUSD: h.totalUSD, estimatedHours: h.estimatedHours, baseRateUSD: h.baseRateUSD };
+        const newEst: CostEstimate = { 
+          totalUSD: h.totalUSD, 
+          estimatedHours: h.estimatedHours, 
+          baseRateUSD: h.baseRateUSD,
+          breakdown: h.breakdown
+        };
         setEstimate(newEst);
         if (onEstimateChange) onEstimateChange(newEst, false);
       }

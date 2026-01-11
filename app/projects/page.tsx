@@ -29,6 +29,7 @@ export default function ProjectsPage() {
   const { user, addProject, getProjects, updateProject, getUserProfiles, getUserProfile, deleteProject, inviteUserToProject, getProjectInvitationsForUser, respondToProjectInvitation, uploadProjectLogo } = useFirebase();
   const { toast } = useToast();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [isLoadingProjects, setIsLoadingProjects] = useState(true);
   const [isAddProjectDialogOpen, setIsAddProjectDialogOpen] = useState(false);
   const [isMembersDialogOpen, setIsMembersDialogOpen] = useState(false);
   const [isEditProjectDialogOpen, setIsEditProjectDialogOpen] = useState(false);
@@ -57,6 +58,8 @@ export default function ProjectsPage() {
     if (account) {
       fetchProjects();
       loadAvailableUsers();
+    } else {
+      setIsLoadingProjects(false);
     }
   }, [account]);
 
@@ -80,13 +83,19 @@ export default function ProjectsPage() {
 
   const fetchProjects = async () => {
     try {
-      if (!account) return;
+      if (!account) {
+        setIsLoadingProjects(false);
+        return;
+      }
+
+      setIsLoadingProjects(true);
 
       // Get current user's profile
       const profile = await getUserProfile(account);
       setCurrentUserProfile(profile);
       if (!profile) {
         setProjects([]);
+        setIsLoadingProjects(false);
         return;
       }
 
@@ -106,6 +115,8 @@ export default function ProjectsPage() {
         description: "Failed to fetch projects. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoadingProjects(false);
     }
   };
 
@@ -749,7 +760,19 @@ export default function ProjectsPage() {
           </div>
 
               {/* Projects Grid */}
-              {projects.length === 0 ? (
+              {isLoadingProjects ? (
+                <div className="rounded-2xl border border-slate-200 bg-white p-16 text-center dark:border-slate-800 dark:bg-slate-900/80">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-950/50 dark:to-purple-950/50">
+                    <Loader2 className="h-8 w-8 animate-spin text-indigo-600 dark:text-indigo-400" />
+                  </div>
+                  <p className="mt-4 text-lg font-semibold text-slate-900 dark:text-slate-50">
+                    Loading projects...
+                  </p>
+                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+                    Please wait while we fetch your workspaces
+                  </p>
+                </div>
+              ) : projects.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 p-16 text-center dark:border-slate-700 dark:bg-slate-900/30">
                   <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-950/50 dark:to-purple-950/50">
                     <Briefcase className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />

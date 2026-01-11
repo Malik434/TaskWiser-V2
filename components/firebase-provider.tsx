@@ -24,7 +24,7 @@ import {
   signInWithCustomToken,
 } from "firebase/auth";
 import { getStorage, ref, type StorageReference } from "firebase/storage";
-import type { ProjectMember, UserProfile, EventLogs } from "@/lib/types";
+import type { ProjectMember, UserProfile, EventLogs, Dispute } from "@/lib/types";
 import { Timestamp } from "firebase/firestore";
 
 // Firebase configuration
@@ -99,6 +99,11 @@ interface FirebaseContextType {
   ) => Promise<void>;
   // Event Logging
   logEvent: (event: Omit<EventLogs, "eventId" | "createdAt">) => Promise<string>;
+  // Disputes
+  getDisputes: () => Promise<any[]>;
+  getDisputeById: (disputeId: string) => Promise<any>;
+  createDispute: (dispute: Omit<Dispute, "id" | "createdAt" | "updatedAt">) => Promise<string>;
+  updateDispute: (disputeId: string, data: any) => Promise<void>;
 }
 
 // Enhanced function to remove undefined fields recursively, handling nested objects and arrays
@@ -193,6 +198,11 @@ const FirebaseContext = createContext<FirebaseContextType>({
   getJoinRequestsForProject: async (): Promise<any[]> => [],
   respondToProjectJoinRequest: async (): Promise<void> => {},
   logEvent: async (): Promise<string> => "",
+  // Disputes
+  getDisputes: async (): Promise<any[]> => [],
+  getDisputeById: async (): Promise<any> => null,
+  createDispute: async (): Promise<string> => "",
+  updateDispute: async (): Promise<void> => {},
 });
 
 export const useFirebase = () => useContext(FirebaseContext);
@@ -1418,6 +1428,80 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Dispute functions
+  const getDisputes = async (): Promise<any[]> => {
+    if (!db) {
+      console.error("Firestore is not initialized");
+      return [];
+    }
+    try {
+      const disputesCollection = collection(db, "disputes");
+      const querySnapshot = await getDocs(disputesCollection);
+      return querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+      console.error("Error getting disputes:", error);
+      return [];
+    }
+  };
+
+  const getDisputeById = async (disputeId: string): Promise<any> => {
+    if (!db) {
+      console.error("Firestore is not initialized");
+      return null;
+    }
+    try {
+      const { doc: docFn, getDoc } = await import("firebase/firestore");
+      const disputeRef = docFn(db, "disputes", disputeId);
+      const disputeDoc = await getDoc(disputeRef);
+      if (!disputeDoc.exists()) {
+        return null;
+      }
+      return { id: disputeDoc.id, ...disputeDoc.data() };
+    } catch (error) {
+      console.error("Error getting dispute:", error);
+      return null;
+    }
+  };
+
+  const createDispute = async (dispute: Omit<Dispute, "id" | "createdAt" | "updatedAt">): Promise<string> => {
+    if (!db) {
+      console.error("Firestore is not initialized");
+      throw new Error("Firestore is not initialized");
+    }
+    try {
+      const disputesCollection = collection(db, "disputes");
+      const disputeData = {
+        ...removeUndefinedFields(dispute),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      const docRef = await addDoc(disputesCollection, disputeData);
+      return docRef.id;
+    } catch (error) {
+      console.error("Error creating dispute:", error);
+      throw error;
+    }
+  };
+
+  const updateDispute = async (disputeId: string, data: any): Promise<void> => {
+    if (!db) {
+      console.error("Firestore is not initialized");
+      throw new Error("Firestore is not initialized");
+    }
+    try {
+      const { doc: docFn, updateDoc: updateDocFn } = await import("firebase/firestore");
+      const disputeRef = docFn(db, "disputes", disputeId);
+      const cleanData = removeUndefinedFields(data);
+      await updateDocFn(disputeRef, {
+        ...cleanData,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.error("Error updating dispute:", error);
+      throw error;
+    }
+  };
+
   // Centralized Firebase authentication function
   const ensureFirebaseAuth = async (address: string, signer: any) => {
     if (!auth || !signer) {
@@ -1581,6 +1665,11 @@ export function FirebaseProvider({ children }: { children: React.ReactNode }) {
         respondToProjectJoinRequest,
         // Event Logging
         logEvent,
+        // Disputes
+        getDisputes,
+        getDisputeById,
+        createDispute,
+        updateDispute,
       }}
     >
       {children}

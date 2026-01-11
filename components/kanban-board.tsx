@@ -83,7 +83,8 @@ import { cn } from "@/lib/utils";
 import { PaymentPopup } from "./payment-popup";
 import { PaymentComponent, type SupportedToken } from "./payment-component";
 import { EscrowPopup } from "./escrow-popup";
-import { lockEscrow } from "@/lib/escrow-contract";
+import { DisputeDialog } from "./dispute-dialog";
+import { lockEscrow, refundEscrowByAssignee, getEscrowDetails, EscrowStatus } from "@/lib/escrow-contract";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { deleteField } from "firebase/firestore";
@@ -118,8 +119,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
     respondToProjectJoinRequest,
     inviteUserToProject,
     logEvent,
+    createDispute,
   } = useFirebase();
-  const { account, signer } = useWeb3();
+  const { account, signer, provider } = useWeb3();
   const { toast } = useToast();
   const [columns, setColumns] = useState<Column[]>([
     {
@@ -226,6 +228,9 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
   const [escrowTask, setEscrowTask] = useState<Task | null>(null);
   const [escrowMode, setEscrowMode] = useState<"lock" | "release">("lock");
   const [isLockingEscrow, setIsLockingEscrow] = useState(false);
+  // Dispute and refund states
+  const [isDisputeDialogOpen, setIsDisputeDialogOpen] = useState(false);
+  const [isRefunding, setIsRefunding] = useState(false);
   const [isProposalDialogOpen, setIsProposalDialogOpen] = useState(false);
   const [proposalTargetTask, setProposalTargetTask] = useState<Task | null>(null);
   const [proposalContent, setProposalContent] = useState("");
@@ -2403,6 +2408,141 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Helper function to check if user can raise dispute
+  const canRaiseDispute = (task: Task): boolean => {
+    if (!account || !task) return false;
+    
+    // Only for escrow-enabled tasks with locked escrow
+    if (!task.escrowEnabled || task.escrowStatus !== "locked") {
+      return false;
+    }
+
+    // Check if user is task creator
+    const isCreator = task.userId?.toLowerCase() === account.toLowerCase();
+    
+    // Check if user is reviewer
+    const isReviewer = task.reviewerId && task.reviewerId === currentUserId;
+    
+    // Check if user is project admin
+    let isProjectAdmin = false;
+    if (projectId && currentProject) {
+      const member = currentProject.members?.find(
+        (m: any) => m.userId === currentUserId && m.isActive && m.role === "admin"
+      );
+      isProjectAdmin = !!member || currentProject.createdBy?.toLowerCase() === account.toLowerCase();
+    }
+
+    return isCreator || isReviewer || isProjectAdmin;
+  };
+
+  // Helper function to check if user can refund
+  const canRefund = (task: Task): boolean => {
+    if (!account || !task) return false;
+    
+    // Only task assignee can refund
+    const userIdentifier = currentUserId || account;
+    const isAssignee = task.assigneeId === userIdentifier || task.assigneeId === account;
+    if (!isAssignee) return false;
+    
+    // Only for escrow-enabled tasks with locked escrow
+    if (!task.escrowEnabled || task.escrowStatus !== "locked") {
+      return false;
+    }
+    
+    // Valid states: todo, inprogress, review
+    const validStates = ["todo", "inprogress", "review"];
+    return validStates.includes(task.status);
+  };
+
+  // Handle refund
+  const handleRefund = async () => {
+    if (!selectedTask || !signer || !provider) {
+      toast({
+        title: "Error",
+        description: "Wallet not connected or task not selected",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!canRefund(selectedTask)) {
+      toast({
+        title: "Error",
+        description: "Refund is not available for this task",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsRefunding(true);
+    try {
+      // Verify escrow is locked
+      const escrowDetails = await getEscrowDetails(provider, selectedTask.id);
+      
+      if (escrowDetails.status !== EscrowStatus.Locked) {
+        toast({
+          title: "Error",
+          description: "Escrow is not in locked state",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Refund escrow by assignee (refund to creator)
+      const tx = await refundEscrowByAssignee(signer, selectedTask.id, "Refund requested by task assignee");
+      toast({
+        title: "Transaction submitted",
+        description: "Waiting for confirmation...",
+      });
+
+      const receipt = await tx.wait();
+      
+      // Verify transaction was successful
+      if (!receipt || receipt.status !== 1) {
+        throw new Error("Transaction failed");
+      }
+
+      // Sync with on-chain state - verify escrow status
+      const updatedEscrowDetails = await getEscrowDetails(provider, selectedTask.id);
+      
+      // Update task escrow status based on on-chain state
+      await updateTask(selectedTask.id, {
+        escrowStatus: updatedEscrowDetails.status === EscrowStatus.Refunded ? "refunded" : selectedTask.escrowStatus,
+        updatedAt: new Date().toISOString(),
+      });
+
+      // Log event
+      await logEvent({
+        taskId: selectedTask.id,
+        projectId: selectedTask.projectId,
+        actor: account || "",
+        actorId: currentUserId || undefined,
+        action: "escrow_refunded",
+        meta: {
+          reason: "Refund requested by task assignee",
+        },
+        description: `Escrow refunded for task "${selectedTask.title}"`,
+      });
+
+      toast({
+        title: "Success",
+        description: "Funds have been refunded to the task creator",
+      });
+
+      // Refresh tasks
+      await fetchAllTasks();
+    } catch (error: any) {
+      console.error("Error refunding escrow:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to refund escrow",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefunding(false);
     }
   };
 
@@ -4712,6 +4852,40 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
                               </Button>
                             </>
                           )}
+
+                          {/* Raise Dispute Button */}
+                          {canRaiseDispute(selectedTask) && (
+                            <Button
+                              variant="outline"
+                              onClick={() => setIsDisputeDialogOpen(true)}
+                              className="rounded-xl border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30 transition-all duration-300"
+                            >
+                              <AlertCircle className="h-4 w-4 mr-2" />
+                              Raise Dispute
+                            </Button>
+                          )}
+
+                          {/* Refund Button */}
+                          {canRefund(selectedTask) && (
+                            <Button
+                              variant="outline"
+                              onClick={handleRefund}
+                              disabled={isRefunding}
+                              className="rounded-xl border-orange-300 dark:border-orange-800 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-950/30 transition-all duration-300"
+                            >
+                              {isRefunding ? (
+                                <>
+                                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                  Refunding...
+                                </>
+                              ) : (
+                                <>
+                                  <RotateCcw className="h-4 w-4 mr-2" />
+                                  Refund
+                                </>
+                              )}
+                            </Button>
+                          )}
                           
                         </div>
                       </div>
@@ -5158,6 +5332,21 @@ export function KanbanBoard({ projectId }: { projectId?: string } = {}) {
       />
 
       {/* Escrow Popup */}
+      <DisputeDialog
+        isOpen={isDisputeDialogOpen}
+        onClose={() => setIsDisputeDialogOpen(false)}
+        task={selectedTask}
+        onSuccess={async () => {
+          if (!selectedTask) return;
+          await fetchAllTasks();
+          // Refresh selected task
+          const updatedTask = allTasks.find((t) => t.id === selectedTask.id);
+          if (updatedTask) {
+            setSelectedTask(updatedTask);
+          }
+        }}
+      />
+
       <EscrowPopup
         isOpen={isEscrowPopupOpen}
         onClose={() => {

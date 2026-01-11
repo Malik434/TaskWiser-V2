@@ -60,6 +60,14 @@ contract TaskWiserEscrow is ReentrancyGuard, Ownable {
         string reason
     );
 
+    event EscrowRefundedByAssignee(
+        bytes32 indexed taskId,
+        address indexed assignee,
+        address indexed admin,
+        uint256 amount,
+        string reason
+    );
+
     /**
      * @dev Constructor sets the deployer as owner
      */
@@ -136,7 +144,36 @@ contract TaskWiserEscrow is ReentrancyGuard, Ownable {
     }
 
     /**
+     * @dev Refund escrow by assignee (assignee can refund back to creator)
+     * @param taskId Unique task identifier
+     * @param reason Reason for refund (for event logging)
+     */
+    function refundEscrowByAssignee(
+        bytes32 taskId,
+        string calldata reason
+    ) external nonReentrant {
+        Escrow storage escrow = escrows[taskId];
+        
+        require(escrow.status == EscrowStatus.Locked, "TaskWiserEscrow: Escrow not locked");
+        require(escrow.assignee == msg.sender, "TaskWiserEscrow: Only assignee can refund");
+
+        IERC20 tokenContract = IERC20(escrow.token);
+        uint256 amount = escrow.amount;
+        address admin = escrow.admin;
+
+        // Update escrow status
+        escrow.status = EscrowStatus.Refunded;
+        escrow.releasedAt = block.timestamp;
+
+        // Transfer tokens back to admin (task creator)
+        tokenContract.safeTransfer(admin, amount);
+
+        emit EscrowRefundedByAssignee(taskId, msg.sender, admin, amount, reason);
+    }
+
+    /**
      * @dev Retrieve escrow in case of dispute (only deployer/owner can call)
+     * Used by admin for dispute resolution - can refund to creator or release to assignee
      * @param taskId Unique task identifier
      * @param reason Reason for refund (for event logging)
      */
@@ -160,6 +197,29 @@ contract TaskWiserEscrow is ReentrancyGuard, Ownable {
         tokenContract.safeTransfer(admin, amount);
 
         emit EscrowRefunded(taskId, admin, amount, reason);
+    }
+
+    /**
+     * @dev Admin can release escrow to assignee (for dispute resolution - approve assignee)
+     * Only owner can call this - used when admin approves assignee's work after dispute
+     * @param taskId Unique task identifier
+     */
+    function releaseEscrowByAdmin(bytes32 taskId) external onlyOwner nonReentrant {
+        Escrow storage escrow = escrows[taskId];
+        
+        require(escrow.status == EscrowStatus.Locked, "TaskWiserEscrow: Escrow not locked");
+
+        IERC20 tokenContract = IERC20(escrow.token);
+        uint256 amount = escrow.amount;
+
+        // Update escrow status
+        escrow.status = EscrowStatus.Released;
+        escrow.releasedAt = block.timestamp;
+
+        // Transfer tokens to assignee
+        tokenContract.safeTransfer(escrow.assignee, amount);
+
+        emit EscrowReleased(taskId, escrow.assignee, amount);
     }
 
     /**
@@ -189,4 +249,3 @@ contract TaskWiserEscrow is ReentrancyGuard, Ownable {
         return escrows[taskId].status;
     }
 }
-

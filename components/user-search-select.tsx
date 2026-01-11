@@ -45,8 +45,8 @@ export function UserSearchSelect({
   const selectedUser = availableUsers.find((user) => user.id === selectedUserId);
 
   return (
-    <div className={`space-y-2 ${className}`}>
-      <Label className="text-xs font-semibold uppercase text-muted-foreground">
+    <div className={`space-y-2.5 ${className}`}>
+      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 sm:text-xs sm:font-semibold sm:uppercase sm:text-muted-foreground">
         {label}
       </Label>
       <div className="relative">
@@ -54,40 +54,40 @@ export function UserSearchSelect({
           placeholder={placeholder}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="w-full"
+          className="w-full h-11 sm:h-10 text-base sm:text-sm"
           disabled={disabled}
         />
         <div
-          className={`absolute z-10 mt-1 w-full rounded-md border bg-popover shadow-md ${
+          className={`absolute z-50 mt-1 w-full rounded-lg border bg-popover shadow-lg ${
             searchQuery ? "block" : "hidden"
           }`}
         >
-          <div className="max-h-60 overflow-auto p-1">
+          <div className="max-h-60 overflow-auto p-1.5">
             <div
-              className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent"
+              className="flex items-center gap-2.5 rounded-md px-3 py-2.5 text-sm cursor-pointer hover:bg-accent active:bg-accent transition-colors"
               onClick={() => {
                 onSelectUser(undefined);
                 setSearchQuery("");
               }}
             >
-              <User className="h-4 w-4" />
+              <User className="h-4 w-4 flex-shrink-0" />
               <span>{emptyLabel}</span>
             </div>
             {isLoadingUsers ? (
-              <div className="flex items-center justify-center p-2">
+              <div className="flex items-center justify-center p-3">
                 <Loader2 className="h-4 w-4 animate-spin" />
               </div>
             ) : (
               getFilteredUsers(availableUsers, searchQuery).map((user) => (
                 <div
                   key={user.id}
-                  className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer hover:bg-accent"
+                  className="flex items-center gap-3 rounded-md px-3 py-2.5 text-sm cursor-pointer hover:bg-accent active:bg-accent transition-colors"
                   onClick={() => {
                     onSelectUser(user.id);
                     setSearchQuery("");
                   }}
                 >
-                  <Avatar className="h-6 w-6">
+                  <Avatar className="h-8 w-8 sm:h-6 sm:w-6 flex-shrink-0">
                     <AvatarImage
                       src={user.profilePicture || "/placeholder.svg"}
                       alt={user.username}
@@ -96,9 +96,9 @@ export function UserSearchSelect({
                       {user.username.substring(0, 2)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex flex-col">
-                    <span>{user.username}</span>
-                    <span className="text-xs text-muted-foreground">
+                  <div className="flex flex-col min-w-0 flex-1">
+                    <span className="font-medium truncate">{user.username}</span>
+                    <span className="text-xs text-muted-foreground truncate">
                       {user.address.substring(0, 10)}...
                     </span>
                   </div>
@@ -107,7 +107,7 @@ export function UserSearchSelect({
             )}
             {searchQuery &&
               getFilteredUsers(availableUsers, searchQuery).length === 0 && (
-                <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                <div className="px-3 py-2.5 text-sm text-muted-foreground">
                   No users found
                 </div>
               )}
@@ -115,8 +115,8 @@ export function UserSearchSelect({
         </div>
       </div>
       {selectedUser && (
-        <div className="flex items-center gap-2 mt-2">
-          <Avatar className="h-6 w-6">
+        <div className="flex items-center gap-3 mt-2 p-2.5 rounded-lg bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800">
+          <Avatar className="h-8 w-8 sm:h-7 sm:w-7 flex-shrink-0">
             <AvatarImage
               src={selectedUser.profilePicture || "/placeholder.svg"}
               alt={selectedUser.username}
@@ -125,11 +125,11 @@ export function UserSearchSelect({
               {selectedUser.username?.substring(0, 2) || "UN"}
             </AvatarFallback>
           </Avatar>
-          <span className="text-sm">{selectedUser.username || "Unknown User"}</span>
+          <span className="text-sm font-medium flex-1 min-w-0 truncate">{selectedUser.username || "Unknown User"}</span>
           <Button
             variant="ghost"
             size="sm"
-            className="h-6 w-6 p-0 rounded-full ml-auto"
+            className="h-8 w-8 sm:h-7 sm:w-7 p-0 rounded-full flex-shrink-0"
             onClick={() => onSelectUser(undefined)}
             disabled={disabled}
           >

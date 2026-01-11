@@ -123,7 +123,7 @@ export interface EventLogs {
   projectId?: string;
   actor: string;
   actorId?: string; // User profile ID
-  action: "created" | "updated" | "moved" | "assigned" | "deleted" | "commented" | "attachment_uploaded" | "escrow_locked" | "escrow_released" | "proposal_submitted" | "proposal_approved" | "proposal_rejected" | "submission_submitted" | "submission_approved" | "submission_rejected" | "payment_processed" | "batch_payment_processed" | "project_joined" | "project_left";
+  action: "created" | "updated" | "moved" | "assigned" | "deleted" | "commented" | "attachment_uploaded" | "escrow_locked" | "escrow_released" | "escrow_refunded" | "proposal_submitted" | "proposal_approved" | "proposal_rejected" | "submission_submitted" | "submission_approved" | "submission_rejected" | "payment_processed" | "batch_payment_processed" | "project_joined" | "project_left";
   meta?: {
     fromColumn?: string;
     toColumn?: string;
@@ -134,4 +134,33 @@ export interface EventLogs {
   };
   description?: string;
   createdAt: Timestamp;
+}
+
+export interface Dispute {
+  id: string;
+  taskId: string;
+  taskTitle?: string;
+  creatorAddress: string; // Task creator wallet address
+  contributorAddress: string; // Task assignee/contributor wallet address
+  creatorEvidence?: {
+    description: string;
+    attachments?: string[]; // URLs or IPFS hashes
+    submittedAt: string;
+  };
+  contributorEvidence?: {
+    description: string;
+    attachments?: string[]; // URLs or IPFS hashes
+    submittedAt: string;
+  };
+  status: "pending" | "resolved" | "refunded" | "approved";
+  resolution?: {
+    decision: "refund" | "approve";
+    resolvedBy: string; // Admin wallet address
+    resolvedAt: string;
+    reason?: string;
+  };
+  escrowAmount?: number;
+  escrowToken?: "USDC" | "USDT";
+  createdAt: string;
+  updatedAt: string;
 }

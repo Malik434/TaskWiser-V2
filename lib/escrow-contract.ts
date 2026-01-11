@@ -9,13 +9,16 @@ import { ethers } from "ethers";
 export const ESCROW_ABI = [
   "function lockEscrow(bytes32 taskId, address token, address assignee, uint256 amount) external",
   "function releaseEscrow(bytes32 taskId) external",
+  "function refundEscrowByAssignee(bytes32 taskId, string calldata reason) external",
   "function retrieveEscrow(bytes32 taskId, string calldata reason) external",
+  "function releaseEscrowByAdmin(bytes32 taskId) external",
   "function getEscrow(bytes32 taskId) external view returns (tuple(bytes32 taskId, address token, address admin, address assignee, uint256 amount, uint8 status, uint256 lockedAt, uint256 releasedAt))",
   "function isEscrowLocked(bytes32 taskId) external view returns (bool)",
   "function getEscrowStatus(bytes32 taskId) external view returns (uint8)",
   "event EscrowLocked(bytes32 indexed taskId, address indexed token, address indexed admin, address assignee, uint256 amount)",
   "event EscrowReleased(bytes32 indexed taskId, address indexed assignee, uint256 amount)",
   "event EscrowRefunded(bytes32 indexed taskId, address indexed admin, uint256 amount, string reason)",
+  "event EscrowRefundedByAssignee(bytes32 indexed taskId, address indexed assignee, address indexed admin, uint256 amount, string reason)",
 ] as const;
 
 // Escrow status enum (matches contract)
@@ -146,7 +149,22 @@ export async function releaseEscrow(
 }
 
 /**
+ * Refund escrow by assignee (assignee refunds back to task creator)
+ */
+export async function refundEscrowByAssignee(
+  signer: ethers.Signer,
+  taskId: string,
+  reason: string
+): Promise<ethers.ContractTransactionResponse> {
+  const contract = getEscrowContract(signer);
+  const taskIdBytes32 = taskIdToBytes32(taskId);
+
+  return contract.refundEscrowByAssignee(taskIdBytes32, reason);
+}
+
+/**
  * Retrieve escrow (admin/dispute resolution - only contract owner)
+ * Used when admin needs to refund to creator during dispute
  */
 export async function retrieveEscrow(
   signer: ethers.Signer,
@@ -157,6 +175,20 @@ export async function retrieveEscrow(
   const taskIdBytes32 = taskIdToBytes32(taskId);
 
   return contract.retrieveEscrow(taskIdBytes32, reason);
+}
+
+/**
+ * Release escrow by admin (for dispute resolution - approve assignee)
+ * Only contract owner can call - used when admin approves assignee's work
+ */
+export async function releaseEscrowByAdmin(
+  signer: ethers.Signer,
+  taskId: string
+): Promise<ethers.ContractTransactionResponse> {
+  const contract = getEscrowContract(signer);
+  const taskIdBytes32 = taskIdToBytes32(taskId);
+
+  return contract.releaseEscrowByAdmin(taskIdBytes32);
 }
 
 /**
@@ -217,5 +249,45 @@ export async function getEscrowDetails(
     lockedAt: escrow.lockedAt,
     releasedAt: escrow.releasedAt,
   };
+}
+
+/**
+ * Wait for transaction and verify it was successful
+ * Also syncs the on-chain escrow status with the provided callback
+ */
+export async function waitForTransactionAndVerify(
+  txResponse: ethers.ContractTransactionResponse,
+  onSuccess?: () => Promise<void>
+): Promise<ethers.TransactionReceipt | null> {
+  const receipt = await txResponse.wait();
+  
+  if (receipt && receipt.status === 1) {
+    // Transaction successful
+    if (onSuccess) {
+      await onSuccess();
+    }
+    return receipt;
+  } else {
+    throw new Error("Transaction failed");
+  }
+}
+
+/**
+ * Get formatted amount from bigint (for display)
+ */
+export function formatEscrowAmount(amount: bigint, decimals: number = 6): string {
+  const divisor = BigInt(10 ** decimals);
+  const whole = amount / divisor;
+  const fraction = amount % divisor;
+  
+  if (fraction === BigInt(0)) {
+    return whole.toString();
+  }
+  
+  const fractionStr = fraction.toString().padStart(decimals, '0');
+  // Remove trailing zeros
+  const trimmedFraction = fractionStr.replace(/0+$/, '');
+  
+  return `${whole}.${trimmedFraction}`;
 }
 

@@ -5,9 +5,13 @@ This smart contract handles escrow functionality for TaskWiser platform, allowin
 
 ## Features
 - Lock tokens in escrow when assignee is assigned
-- Release tokens to assignee when task is completed
-- Dispute resolution (only contract deployer can retrieve tokens)
+- Release tokens to assignee when task is completed (by creator or admin)
+- Refund escrow by assignee back to creator
+- Dispute resolution:
+  - Admin can refund to creator
+  - Admin can release to assignee (approve assignee's work)
 - Support for ERC20 tokens (USDC, USDT)
+- Real on-chain payment processing with state synchronization
 
 ## Contract Address (Sepolia)
 **Deploy the contract and update this address:**
@@ -78,13 +82,28 @@ Releases locked tokens to assignee when task is completed.
 function releaseEscrow(bytes32 taskId) external
 ```
 
+### refundEscrowByAssignee
+Allows assignee to refund escrow back to task creator.
+```solidity
+function refundEscrowByAssignee(
+    bytes32 taskId,
+    string calldata reason
+) external
+```
+
 ### retrieveEscrow
-Retrieves tokens back to admin in case of dispute (only deployer can call).
+Admin can retrieve tokens back to creator in case of dispute (only deployer/owner can call).
 ```solidity
 function retrieveEscrow(
     bytes32 taskId,
     string calldata reason
 ) external onlyOwner
+```
+
+### releaseEscrowByAdmin
+Admin can release escrow to assignee (for dispute resolution - approve assignee).
+```solidity
+function releaseEscrowByAdmin(bytes32 taskId) external onlyOwner
 ```
 
 ### getEscrow
@@ -95,12 +114,14 @@ function getEscrow(bytes32 taskId) external view returns (Escrow memory)
 
 ## Security Considerations
 
-1. **Reentrancy Protection**: Contract uses OpenZeppelin's ReentrancyGuard
+1. **Reentrancy Protection**: All state-changing functions use OpenZeppelin's ReentrancyGuard
 2. **Access Control**: 
-   - Only admin (task creator) can lock/release
-   - Only contract owner (deployer) can retrieve in disputes
+   - Only admin (task creator) can lock/release via `releaseEscrow`
+   - Only assignee can refund via `refundEscrowByAssignee`
+   - Only contract owner (deployer) can retrieve/approve in disputes via `retrieveEscrow` and `releaseEscrowByAdmin`
 3. **Input Validation**: All inputs are validated (non-zero addresses, amounts, etc.)
 4. **Safe Token Transfers**: Uses OpenZeppelin's SafeERC20 for secure transfers
+5. **State Validation**: All functions verify escrow is in `Locked` state before execution
 
 ## Testing
 
@@ -113,13 +134,17 @@ function getEscrow(bytes32 taskId) external view returns (Escrow memory)
 - [ ] Verify unauthorized access is blocked
 
 ### Test Scenarios
-1. **Normal Flow**: Lock → Release
-2. **Dispute Flow**: Lock → Retrieve (by owner)
-3. **Error Cases**: 
+1. **Normal Flow**: Lock → Release (by creator)
+2. **Assignee Refund Flow**: Lock → Refund by Assignee
+3. **Dispute Flow - Refund**: Lock → Retrieve (by owner) → Funds to creator
+4. **Dispute Flow - Approve**: Lock → Release by Admin (by owner) → Funds to assignee
+5. **Error Cases**: 
    - Lock with insufficient balance
    - Release by non-admin
-   - Retrieve by non-owner
+   - Refund by non-assignee
+   - Retrieve/Approve by non-owner
    - Lock duplicate taskId
+   - Operations on non-locked escrow
 
 ## Integration with Frontend
 
@@ -131,7 +156,27 @@ NEXT_PUBLIC_ESCROW_CONTRACT_ADDRESS=<deployed_contract_address>
 ## Gas Estimates (Approximate)
 - `lockEscrow`: ~80,000 - 100,000 gas
 - `releaseEscrow`: ~50,000 - 70,000 gas
+- `refundEscrowByAssignee`: ~50,000 - 70,000 gas
 - `retrieveEscrow`: ~50,000 - 70,000 gas
+- `releaseEscrowByAdmin`: ~50,000 - 70,000 gas
+
+## Events
+
+All escrow operations emit events for off-chain tracking:
+
+- `EscrowLocked`: When escrow is created and locked
+- `EscrowReleased`: When escrow is released to assignee
+- `EscrowRefunded`: When escrow is refunded to creator (by admin)
+- `EscrowRefundedByAssignee`: When escrow is refunded to creator (by assignee)
+
+## Frontend Integration
+
+The frontend automatically:
+- Synchronizes escrow status with on-chain state after transactions
+- Verifies transaction receipts before updating local state
+- Handles all escrow operations through the contract
+
+See `contracts/UPDATES.md` for detailed information about the latest updates.
 
 ## Support
 For issues or questions, contact the development team.

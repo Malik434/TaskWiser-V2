@@ -19,12 +19,12 @@ interface StatusSelectProps {
 
 export function StatusSelect({ value, onValueChange }: StatusSelectProps) {
   return (
-    <div className="space-y-2">
-      <Label className="text-xs font-semibold uppercase text-muted-foreground">
-        STATUS
+    <div className="space-y-2.5">
+      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 sm:text-xs sm:font-semibold sm:uppercase sm:text-muted-foreground">
+        Status
       </Label>
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger>
+        <SelectTrigger className="h-11 sm:h-10 text-base sm:text-sm">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -45,12 +45,12 @@ interface PrioritySelectProps {
 
 export function PrioritySelect({ value, onValueChange }: PrioritySelectProps) {
   return (
-    <div className="space-y-2">
-      <Label className="text-xs font-semibold uppercase text-muted-foreground">
-        PRIORITY
+    <div className="space-y-2.5">
+      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 sm:text-xs sm:font-semibold sm:uppercase sm:text-muted-foreground">
+        Priority
       </Label>
       <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger>
+        <SelectTrigger className="h-11 sm:h-10 text-base sm:text-sm">
           <SelectValue placeholder="Select a priority" />
         </SelectTrigger>
         <SelectContent>
@@ -100,11 +100,11 @@ export function RewardInput({
   };
 
   return (
-    <div className="space-y-2">
-      <Label className="text-xs font-semibold uppercase text-muted-foreground">
+    <div className="space-y-2.5">
+      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 sm:text-xs sm:font-semibold sm:uppercase sm:text-muted-foreground">
         {label}
       </Label>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-2">
         <Select
           value={reward || "no_reward"}
           onValueChange={(value) =>
@@ -112,7 +112,7 @@ export function RewardInput({
           }
           disabled={disabled}
         >
-          <SelectTrigger>
+          <SelectTrigger className="h-11 sm:h-10 text-base sm:text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -129,6 +129,7 @@ export function RewardInput({
           onChange={handleAmountChange}
           placeholder="Amount"
           disabled={disabled}
+          className="h-11 sm:h-10 text-base sm:text-sm"
         />
       </div>
     </div>
@@ -153,10 +154,10 @@ export function TaskPointsInput() {
   };
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2.5">
       <div className="flex items-center justify-between">
-        <Label className="text-xs font-semibold uppercase text-muted-foreground">
-          TASK POINTS
+        <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 sm:text-xs sm:font-semibold sm:uppercase sm:text-muted-foreground">
+          Task Points
         </Label>
         <HelpCircle className="h-4 w-4 text-muted-foreground" />
       </div>
@@ -168,7 +169,7 @@ export function TaskPointsInput() {
         inputMode="numeric"
         pattern="[0-9]*"
         onChange={handleInput}
-        className="w-full"
+        className="w-full h-11 sm:h-10 text-base sm:text-sm"
       />
     </div>
   );
@@ -206,20 +207,21 @@ export function TagsSelect({
   }
 
   return (
-    <div className="space-y-2">
-      <Label className="text-xs font-semibold uppercase text-muted-foreground">
+    <div className="space-y-2.5">
+      <Label className="text-sm font-medium text-slate-700 dark:text-slate-300 sm:text-xs sm:font-semibold sm:uppercase sm:text-muted-foreground">
         {label}
       </Label>
 
       {/* Selected chips */}
       <div className="flex items-center gap-2 flex-wrap">
         {selected.map((tag) => (
-          <Badge key={tag} variant="secondary" className="flex items-center gap-1">
+          <Badge key={tag} variant="secondary" className="flex items-center gap-1.5 py-1.5 px-2.5 text-sm">
             <span>{tag}</span>
             <button
               type="button"
               onClick={() => removeTag(tag)}
-              className="ml-1 inline-flex items-center justify-center rounded-full w-4 h-4 text-[10px] bg-muted-foreground/20 hover:bg-muted-foreground/30"
+              className="inline-flex items-center justify-center rounded-full w-5 h-5 text-xs bg-muted-foreground/20 hover:bg-muted-foreground/30 transition-colors"
+              aria-label={`Remove ${tag}`}
             >
               ×
             </button>
@@ -230,28 +232,28 @@ export function TagsSelect({
       {/* Dropdown multi-select */}
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="outline" size="sm" className="justify-between w-full sm:w-auto">
+          <Button variant="outline" size="sm" className="justify-between w-full h-11 sm:h-9 text-base sm:text-sm">
             {placeholder}
-            <span className="ml-2 text-xs text-muted-foreground">{selected.length} selected</span>
+            <span className="ml-2 text-sm sm:text-xs text-muted-foreground">{selected.length} selected</span>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-64 p-2">
+        <PopoverContent className="w-[calc(100vw-2rem)] sm:w-64 p-3" align="start">
           {options && options.length > 0 ? (
-            <ScrollArea className="h-48">
-              <div className="space-y-2">
+            <ScrollArea className="h-48 sm:h-60">
+              <div className="space-y-2.5">
                 {options.map((opt) => {
                   const checked = selected.includes(opt);
                   return (
-                    <label key={opt} className="flex items-center gap-2 text-sm">
-                      <Checkbox checked={checked} onCheckedChange={() => toggleOption(opt)} />
-                      <span className="truncate">{opt}</span>
+                    <label key={opt} className="flex items-center gap-3 text-sm sm:text-sm cursor-pointer py-1.5 px-1 rounded-md hover:bg-accent transition-colors">
+                      <Checkbox checked={checked} onCheckedChange={() => toggleOption(opt)} className="h-5 w-5" />
+                      <span className="flex-1">{opt}</span>
                     </label>
                   );
                 })}
               </div>
             </ScrollArea>
           ) : (
-            <p className="text-xs text-muted-foreground">No tags configured. Ask admin to add options.</p>
+            <p className="text-sm text-muted-foreground py-2">No tags configured. Ask admin to add options.</p>
           )}
         </PopoverContent>
       </Popover>

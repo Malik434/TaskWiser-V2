@@ -298,25 +298,9 @@ export default function ProjectBoardPage() {
           {/* Enhanced Header */}
           <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-950/80">
             <div className="flex h-16 items-center justify-between px-4 sm:px-6">
-              <div className="flex items-center gap-3 md:ml-0 ml-12">
-                <Button
-                  onClick={() => router.push("/projects")}
-                  variant="ghost"
-                  size="icon"
-                  className="h-10 w-10 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800"
-                >
-                  <ArrowLeft className="h-5 w-5" />
-                </Button>
+              <div className="flex items-center gap-3 ml-14 md:ml-0">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-purple-500 shadow-lg">
                   <FolderKanban className="h-5 w-5 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">
-                    {project.title}
-                  </h1>
-                  <p className="text-xs text-slate-600 dark:text-slate-400">
-                    Project Board
-                  </p>
                 </div>
               </div>
               <div className="flex items-center gap-2 sm:gap-4">
